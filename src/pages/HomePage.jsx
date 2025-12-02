@@ -1,5 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import HeroWith3D from '../components/HeroWith3D';
+import HeroCarousel from '../components/HeroCarousel';
+import SkintoneSelector from '../components/SkintoneSelector';
+import OccasionSelector from '../components/OccasionSelector';
 import ProductGrid from '../components/ProductGrid';
 import VideoBanner from '../components/VideoBanner';
 import { useCatalog } from '../contexts/catalog-context';
@@ -13,6 +16,14 @@ export default function HomePage() {
   const { products: catalogProducts, ensureCollectionProducts } = useCatalog();
   const [latestProducts, setLatestProducts] = useState([]);
   const [moreProducts, setMoreProducts] = useState([]);
+  const [selectedSkintone, setSelectedSkintone] = useState(null);
+
+  // Scroll to occasion selector when skintone is selected
+  useEffect(() => {
+    if (selectedSkintone) {
+      document.getElementById('occasion-selector')?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [selectedSkintone]);
 
   const fallbackLatest = useMemo(() => {
     if (!catalogProducts?.length) return [];
@@ -97,6 +108,14 @@ export default function HomePage() {
       {/* Original Structure: Hero -> Grid -> Video -> Grid */}
 
       <HeroWith3D heroVideoSrc={heroVideo} />
+
+      <SkintoneSelector onSelect={setSelectedSkintone} />
+
+      {selectedSkintone && (
+        <div id="occasion-selector">
+          <OccasionSelector selectedSkintone={selectedSkintone} />
+        </div>
+      )}
 
       <div className="site-shell section-gap">
         <ProductGrid

@@ -8,6 +8,7 @@ import CartProvider from '../contexts/cart-context';
 import NotificationProvider from './NotificationProvider';
 import SearchOverlay from './SearchOverlay';
 import CartDrawer from './CartDrawer';
+import BottomNav from './BottomNav';
 
 const marqueeItems = [
   'EVRYDAE',
@@ -75,6 +76,7 @@ const Layout = () => {
 
             <SearchOverlay open={searchOpen} onClose={() => setSearchOpen(false)} />
             <CartDrawer open={cartOpen} onClose={() => setCartOpen(false)} />
+            <BottomNav onSearchClick={() => setSearchOpen(true)} onCartClick={() => setCartOpen(true)} />
           </div>
         </NotificationProvider>
       </CartProvider>
