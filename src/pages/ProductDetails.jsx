@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useOutletContext, useParams } from 'react-router-dom';
-import { Star, ShoppingBag, Heart, Truck } from 'lucide-react';
+import { Star, ShoppingBag, Heart, Truck, ChevronLeft, ChevronRight, Share2, Plus, Minus } from 'lucide-react';
 import { useCart } from '../contexts/cart-context';
 import { useNotifications } from '../components/NotificationProvider';
 import { useCatalog } from '../contexts/catalog-context';
@@ -10,6 +10,31 @@ import {
   formatMoney,
   toProductCard,
 } from '../lib/shopify';
+
+const AccordionItem = ({ title, isOpen, onClick, children }) => {
+  return (
+    <div className="border-b border-gray-200">
+      <button
+        onClick={onClick}
+        className="w-full py-4 flex items-center justify-between text-left group"
+      >
+        <span className="text-sm font-bold text-gray-900 uppercase tracking-wider">{title}</span>
+        {isOpen ? (
+          <Minus className="w-5 h-5 text-gray-500 group-hover:text-black" />
+        ) : (
+          <Plus className="w-5 h-5 text-gray-500 group-hover:text-black" />
+        )}
+      </button>
+      <div
+        className={`overflow-hidden transition-all duration-300 ease-in-out ${isOpen ? 'max-h-[500px] opacity-100 mb-4' : 'max-h-0 opacity-0'}`}
+      >
+        <div className="text-sm text-gray-600 leading-relaxed">
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const ProductDetails = () => {
   const { slug } = useParams();
@@ -23,9 +48,16 @@ const ProductDetails = () => {
   const [product, setProduct] = useState(initialProduct ?? null);
   const [loading, setLoading] = useState(!initialProduct);
   const [error, setError] = useState(null);
-  const [relatedProducts, setRelatedProducts] = useState([]);
   const [selectedSize, setSelectedSize] = useState(null);
   const [pincode, setPincode] = useState('');
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
+
+  // Accordion States
+  const [openAccordion, setOpenAccordion] = useState('details'); // 'details', 'delivery', 'returns', or null
+
+  const toggleAccordion = (section) => {
+    setOpenAccordion(openAccordion === section ? null : section);
+  };
 
   // Always fetch fresh product (with metafields)
   useEffect(() => {
@@ -33,7 +65,6 @@ const ProductDetails = () => {
 
     async function load() {
       setError(null);
-      // If we have it in context, show it immediately while fetching fresh data
       const cached = getProduct(slug);
       if (!cancelled && cached) {
         setProduct(cached);
@@ -43,29 +74,16 @@ const ProductDetails = () => {
       }
 
       try {
-        console.log(`Fetching product: ${slug}`);
         const full = await fetchProductByHandle(slug);
-
         if (cancelled) return;
 
         if (full) {
           setProduct(full);
-          // Fetch recommendations only if we found the product
-          try {
-            const recs = await fetchRecommendedProducts(full, 4);
-            if (!cancelled) setRelatedProducts((recs ?? []).map(toProductCard).filter(Boolean));
-          } catch (e) {
-            console.warn('Unable to load recommended products', e);
-          }
         } else {
-          console.error(`Product not found for handle: ${slug}`);
           if (!cached) setError(new Error('Product not found'));
         }
       } catch (e) {
-        console.error(`Failed to load product "${slug}"`, e);
-        if (!cancelled && !cached) {
-          setError(e);
-        }
+        if (!cancelled && !cached) setError(e);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -96,156 +114,191 @@ const ProductDetails = () => {
     }
   }, [hasSizes, sizeOptions, selectedSize]);
 
-
   if (loading) return (
-    <div className="min-h-screen flex items-center justify-center flex-col gap-4">
-      <div className="w-8 h-8 border-4 border-pink-500 border-t-transparent rounded-full animate-spin"></div>
-      <p className="text-gray-500">Loading product details...</p>
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="w-8 h-8 border-4 border-black border-t-transparent rounded-full animate-spin"></div>
     </div>
   );
 
-  if (error || !product) return (
-    <div className="min-h-screen flex items-center justify-center flex-col gap-4">
-      <p className="text-red-500 font-bold">Product not found</p>
-      <p className="text-sm text-gray-500">Could not load details for "{slug}"</p>
-      <Link to="/" className="text-pink-600 underline">Return Home</Link>
-    </div>
-  );
+  if (error || !product) return null;
 
   const images = (product.images || []).filter(img => img.url);
-  // Fallback if no images
   if (images.length === 0 && product.featuredImage) {
     images.push(product.featuredImage);
   }
 
   const price = formatMoney(product.price, product.currencyCode);
-  const compareAtPrice = product.compareAtPrice ? formatMoney(product.compareAtPrice, product.currencyCode) : null;
-  const discount = product.compareAtPrice && product.price && product.compareAtPrice.amount > product.price.amount
-    ? Math.round(((product.compareAtPrice.amount - product.price.amount) / product.compareAtPrice.amount) * 100)
-    : 0;
 
   const handleAddToCart = () => {
     const size = selectedSize ?? sizeOptions[0] ?? null;
     addItem(product.handle, { size: hasSizes ? size : null });
     notify({
       title: 'Added to Cart',
-      message: `${product.title}${hasSizes && size ? ` - Size ${size}` : ''}`,
+      message: `${product.title}`,
       actionLabel: 'View Cart',
       onAction: () => navigate('/cart'),
     });
     openCartDrawer?.();
   };
 
+  const nextImage = () => setActiveImageIndex((prev) => (prev + 1) % images.length);
+  const prevImage = () => setActiveImageIndex((prev) => (prev - 1 + images.length) % images.length);
+
   return (
-    <div className="bg-white min-h-screen pb-20">
-      <div className="site-shell pt-4">
-        <div className="text-xs text-gray-500 mb-4">
-          <Link to="/" className="hover:text-black">Home</Link> / <Link to="/products" className="hover:text-black">Clothing</Link> / <span className="font-bold text-gray-800">{product.title}</span>
-        </div>
+    <div className="bg-white min-h-screen pb-20 pt-4">
+      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Left: Images Grid */}
-          <div className="grid grid-cols-2 gap-2">
-            {images.length > 0 ? (
-              images.map((img, idx) => (
-                <div key={idx} className="aspect-[3/4] overflow-hidden cursor-zoom-in group bg-gray-50">
-                  <img src={img.url} alt={img.altText || product.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                </div>
-              ))
-            ) : (
-              <div className="col-span-2 aspect-[3/4] bg-gray-100 flex items-center justify-center text-gray-400">
-                No Images Available
-              </div>
-            )}
-          </div>
+        <div className="flex flex-col lg:flex-row gap-8 lg:gap-12">
 
-          {/* Right: Details */}
-          <div className="lg:pl-8 lg:sticky lg:top-24 lg:self-start">
-            <h1 className="text-2xl font-bold text-[#282c3f] mb-1">{product.vendor || 'Brand'}</h1>
-            <h2 className="text-xl text-[#535766] font-normal mb-4">{product.title}</h2>
-
-            <div className="flex items-center gap-2 mb-4 border border-gray-200 w-fit px-2 py-1 rounded cursor-pointer hover:border-gray-800">
-              <span className="font-bold text-sm">4.4</span>
-              <Star className="w-3 h-3 text-teal-500 fill-teal-500" />
-              <span className="text-gray-300">|</span>
-              <span className="text-xs text-gray-500">2.8k Ratings</span>
+          {/* LEFT COLUMN: Gallery */}
+          <div className="lg:w-[60%] flex gap-4 lg:h-[calc(100vh-120px)] h-auto lg:sticky lg:top-24">
+            {/* Thumbnails Strip */}
+            <div className="hidden lg:flex flex-col gap-3 w-20 overflow-y-auto no-scrollbar py-1">
+              {images.map((img, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => setActiveImageIndex(idx)}
+                  className={`w-full aspect-[3/4] border transition-all ${activeImageIndex === idx ? 'border-black opacity-100' : 'border-transparent opacity-60 hover:opacity-100'}`}
+                >
+                  <img src={img.url} alt="" className="w-full h-full object-cover" />
+                </button>
+              ))}
             </div>
 
-            <div className="border-t border-gray-200 my-4"></div>
+            {/* Main Image Area */}
+            <div className="flex-1 relative bg-gray-50 h-full overflow-hidden group">
+              <img
+                src={images[activeImageIndex]?.url}
+                alt={product.title}
+                className="w-full h-full object-cover object-center"
+              />
 
-            <div className="flex items-center gap-4 mb-2">
-              <span className="text-2xl font-bold text-[#282c3f]">{price}</span>
-              {compareAtPrice && (
+              {/* Navigation Arrows */}
+              {images.length > 1 && (
                 <>
-                  <span className="text-lg text-gray-500 line-through">{compareAtPrice}</span>
-                  <span className="text-lg text-orange-500 font-bold">({discount}% OFF)</span>
+                  <button
+                    onClick={prevImage}
+                    className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/80 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white"
+                  >
+                    <ChevronLeft className="w-6 h-6" />
+                  </button>
+                  <button
+                    onClick={nextImage}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/80 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white"
+                  >
+                    <ChevronRight className="w-6 h-6" />
+                  </button>
                 </>
               )}
-            </div>
-            <p className="text-xs text-teal-600 font-bold mb-6">inclusive of all taxes</p>
 
-            {/* Size Selector */}
+              {/* Floating Icons */}
+              <div className="absolute top-4 right-4 flex flex-col gap-3">
+                <button className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm hover:scale-105 transition-transform">
+                  <Heart className="w-5 h-5 text-gray-700" />
+                </button>
+                <button className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm hover:scale-105 transition-transform">
+                  <Share2 className="w-5 h-5 text-gray-700" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* RIGHT COLUMN: Details */}
+          <div className="lg:w-[40%] pt-2 lg:pl-4">
+            <div className="flex justify-between items-start mb-2">
+              <h1 className="text-xl md:text-2xl font-normal text-gray-900">{product.title}</h1>
+              <span className="text-xl font-bold text-gray-900">{price}</span>
+            </div>
+
+            {/* Colors Section (Mock) */}
+            <div className="mb-8">
+              <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider mb-3">Colors</h3>
+              <div className="flex gap-3">
+                {/* Just showing current product as the 'active' color + placeholders */}
+                <div className="w-16 h-20 border border-black p-0.5 cursor-pointer">
+                  <img src={images[0]?.url} alt="" className="w-full h-full object-cover" />
+                </div>
+                <div className="w-16 h-20 border border-transparent hover:border-gray-300 p-0.5 cursor-pointer opacity-50 grayscale">
+                  <img src={images[0]?.url} alt="" className="w-full h-full object-cover" />
+                </div>
+                <div className="w-16 h-20 border border-transparent hover:border-gray-300 p-0.5 cursor-pointer opacity-50 grayscale">
+                  <img src={images[0]?.url} alt="" className="w-full h-full object-cover" />
+                </div>
+              </div>
+            </div>
+
+            {/* Sizes Section */}
             {hasSizes && (
               <div className="mb-8">
-                <div className="flex justify-between items-center mb-4">
-                  <span className="text-sm font-bold text-[#282c3f] uppercase">Select Size</span>
-                  <span className="text-sm font-bold text-[#ff3f6c] uppercase cursor-pointer">Size Chart</span>
+                <div className="flex justify-between items-center mb-3">
+                  <span className="text-xs font-bold text-gray-900 uppercase tracking-wider">Sizes</span>
+                  <button className="text-xs font-medium text-gray-500 underline hover:text-black">SIZE CHART</button>
                 </div>
-                <div className="flex gap-3 flex-wrap">
+                <div className="flex gap-2 flex-wrap">
                   {sizeOptions.map((size) => (
                     <button
                       key={size}
                       onClick={() => setSelectedSize(size)}
-                      className={`w-12 h-12 rounded-full border flex items-center justify-center text-sm font-bold transition-all ${selectedSize === size ? 'border-[#ff3f6c] text-[#ff3f6c]' : 'border-gray-300 text-[#282c3f] hover:border-[#ff3f6c]'}`}
+                      className={`min-w-[48px] h-10 px-2 border flex items-center justify-center text-sm font-medium transition-all ${selectedSize === size
+                          ? 'border-black bg-black text-white'
+                          : 'border-gray-300 text-gray-900 hover:border-black'
+                        }`}
                     >
                       {size}
                     </button>
                   ))}
                 </div>
+                <p className="text-xs text-orange-600 mt-3 flex items-center gap-1">
+                  <Truck className="w-3 h-3" /> FREE 1-2 day delivery on 5k+ pincodes
+                </p>
               </div>
             )}
 
-            {/* Actions */}
-            <div className="flex gap-4 mb-8">
-              <button
-                onClick={handleAddToCart}
-                className="flex-1 bg-[#ff3f6c] text-white font-bold py-4 rounded-sm uppercase tracking-wide flex items-center justify-center gap-2 hover:bg-[#d43256] transition-colors"
+            {/* Add to Bag */}
+            <button
+              onClick={handleAddToCart}
+              className="w-full bg-black text-white font-bold text-sm py-4 uppercase tracking-widest hover:bg-gray-900 transition-colors mb-8"
+            >
+              Add to Bag
+            </button>
+
+            {/* Accordions */}
+            <div className="border-t border-gray-200">
+              <AccordionItem
+                title="Details"
+                isOpen={openAccordion === 'details'}
+                onClick={() => toggleAccordion('details')}
               >
-                <ShoppingBag className="w-5 h-5" /> Add to Bag
-              </button>
-              <button className="flex-1 border border-gray-300 text-[#282c3f] font-bold py-4 rounded-sm uppercase tracking-wide flex items-center justify-center gap-2 hover:border-black transition-colors">
-                <Heart className="w-5 h-5" /> Wishlist
-              </button>
+                <div dangerouslySetInnerHTML={{ __html: product.descriptionHtml || product.description }} />
+              </AccordionItem>
+
+              <AccordionItem
+                title="Delivery"
+                isOpen={openAccordion === 'delivery'}
+                onClick={() => toggleAccordion('delivery')}
+              >
+                <div className="flex gap-2 relative max-w-xs mb-2">
+                  <input
+                    type="text"
+                    placeholder="Enter pincode"
+                    value={pincode}
+                    onChange={(e) => setPincode(e.target.value)}
+                    className="w-full border-b border-gray-300 py-2 text-sm focus:outline-none focus:border-black"
+                  />
+                  <button className="text-black font-bold text-xs absolute right-0 top-1/2 -translate-y-1/2 uppercase">Check</button>
+                </div>
+                <p className="text-xs text-gray-500">Enter your pincode to check delivery time & Pay on Delivery availability.</p>
+              </AccordionItem>
+
+              <AccordionItem
+                title="Returns"
+                isOpen={openAccordion === 'returns'}
+                onClick={() => toggleAccordion('returns')}
+              >
+                <p>Easy 14 days returns and exchanges. Return Policies may vary based on products and promotions.</p>
+              </AccordionItem>
             </div>
 
-            {/* Delivery */}
-            <div className="mb-8">
-              <span className="text-sm font-bold text-[#282c3f] uppercase flex items-center gap-2 mb-3">
-                Delivery Options <Truck className="w-5 h-5" />
-              </span>
-              <div className="flex gap-2 relative max-w-xs">
-                <input
-                  type="text"
-                  placeholder="Enter pincode"
-                  value={pincode}
-                  onChange={(e) => setPincode(e.target.value)}
-                  className="w-full border border-gray-300 rounded-sm px-3 py-2 text-sm focus:outline-none focus:border-black"
-                />
-                <button className="text-[#ff3f6c] font-bold text-sm absolute right-3 top-1/2 -translate-y-1/2">Check</button>
-              </div>
-              <p className="text-xs text-gray-500 mt-2">Please enter PIN code to check delivery time & Pay on Delivery Availability</p>
-            </div>
-
-            {/* Product Details from Description */}
-            <div className="mb-8">
-              <span className="text-sm font-bold text-[#282c3f] uppercase flex items-center gap-2 mb-3">
-                Product Details
-              </span>
-              <div
-                className="text-sm text-gray-700 leading-relaxed space-y-2"
-                dangerouslySetInnerHTML={{ __html: product.descriptionHtml || product.description }}
-              />
-            </div>
           </div>
         </div>
       </div>
