@@ -98,30 +98,30 @@ const AllProductsPage = ({ initialCategory = 'all' }) => {
       </div>
 
       {/* Filter Bar */}
-      <div className="border-t border-b border-gray-200 sticky top-20 bg-white z-30">
-        <div className="site-shell py-3 flex justify-between items-center">
-          {/* Left: Filters (Mock) */}
-          <div className="flex items-center gap-4">
+      <div className="border-t border-b border-gray-200 bg-white">
+        <div className="site-shell py-3 flex justify-between items-center gap-4">
+          {/* Left: Filters (Mock) - Scrollable on mobile */}
+          <div className="flex items-center gap-2 md:gap-4 overflow-x-auto no-scrollbar whitespace-nowrap flex-1">
             <div className="relative group">
-              <button className="flex items-center gap-1 text-sm font-bold text-gray-700 hover:bg-gray-100 px-3 py-2 rounded-full transition-colors">
+              <button className="flex items-center gap-1 text-sm font-bold text-gray-700 hover:bg-gray-100 px-3 py-2 rounded-full transition-colors whitespace-nowrap">
                 Bundles <ChevronDown className="w-4 h-4" />
               </button>
             </div>
             <div className="relative group">
-              <button className="flex items-center gap-1 text-sm font-bold text-gray-700 hover:bg-gray-100 px-3 py-2 rounded-full transition-colors">
+              <button className="flex items-center gap-1 text-sm font-bold text-gray-700 hover:bg-gray-100 px-3 py-2 rounded-full transition-colors whitespace-nowrap">
                 Country of Origin <ChevronDown className="w-4 h-4" />
               </button>
             </div>
             <div className="relative group">
-              <button className="flex items-center gap-1 text-sm font-bold text-gray-700 hover:bg-gray-100 px-3 py-2 rounded-full transition-colors">
+              <button className="flex items-center gap-1 text-sm font-bold text-gray-700 hover:bg-gray-100 px-3 py-2 rounded-full transition-colors whitespace-nowrap">
                 Size <ChevronDown className="w-4 h-4" />
               </button>
             </div>
           </div>
 
-          {/* Right: Sort */}
-          <div className="flex items-center gap-2 border border-gray-200 px-3 py-2 rounded-sm cursor-pointer hover:border-gray-400 relative group">
-            <span className="text-sm text-gray-500">Sort by:</span>
+          {/* Right: Sort - Fixed width/shrink */}
+          <div className="flex-shrink-0 flex items-center gap-2 border border-gray-200 px-3 py-2 rounded-sm cursor-pointer hover:border-gray-400 relative group">
+            <span className="text-sm text-gray-500 hidden sm:inline">Sort by:</span>
             <span className="text-sm font-bold text-gray-800 capitalize">{sortBy.replace('_', ' ')}</span>
             <ChevronDown className="w-4 h-4 text-gray-500" />
 
@@ -143,8 +143,8 @@ const AllProductsPage = ({ initialCategory = 'all' }) => {
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-x-6 gap-y-10">
             {sortedProducts.length > 0 ? (
-              sortedProducts.map((product) => (
-                <ProductCard key={product.id} item={product} />
+              sortedProducts.map((product, index) => (
+                <ProductCard key={product.id || index} item={product} />
               ))
             ) : (
               <div className="col-span-full text-center py-20 text-gray-500">No products found in this category.</div>

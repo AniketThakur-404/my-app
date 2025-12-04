@@ -135,7 +135,7 @@ export default function HomePage() {
         />
       </div>
 
-      <VideoBanner />
+
 
       <div className="site-shell section-gap">
         <ProductGrid

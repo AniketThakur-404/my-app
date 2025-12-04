@@ -70,7 +70,7 @@ const Layout = () => {
       <CartProvider>
         <NotificationProvider>
           <div className="bg-white text-neutral-900 min-h-screen flex flex-col">
-            <div className={`sticky top-0 z-50 ${isMobileHome ? 'hidden lg:block' : ''}`}>
+            <div className="sticky top-0 z-50 hidden lg:block">
               <Navbar
                 onSearchClick={() => setSearchOpen(true)}
                 onCartClick={() => setCartOpen(true)}
