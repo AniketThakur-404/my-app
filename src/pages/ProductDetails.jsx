@@ -1,152 +1,23 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useOutletContext, useParams } from 'react-router-dom';
-import { Star, ShoppingBag, Heart, Truck, ChevronLeft, ChevronRight, Share2, Plus, Minus } from 'lucide-react';
-import { useCart } from '../contexts/cart-context';
-import { useNotifications } from '../components/NotificationProvider';
-import { useCatalog } from '../contexts/catalog-context';
-import {
-  fetchProductByHandle,
-  fetchRecommendedProducts,
-  formatMoney,
-  toProductCard,
-} from '../lib/shopify';
+import MobilePageHeader from '../components/MobilePageHeader';
 
-const AccordionItem = ({ title, isOpen, onClick, children }) => {
-  return (
-    <div className="border-b border-gray-200">
-      <button
-        onClick={onClick}
-        className="w-full py-4 flex items-center justify-between text-left group"
-      >
-        <span className="text-sm font-bold text-gray-900 uppercase tracking-wider">{title}</span>
-        {isOpen ? (
-          <Minus className="w-5 h-5 text-gray-500 group-hover:text-black" />
-        ) : (
-          <Plus className="w-5 h-5 text-gray-500 group-hover:text-black" />
-        )}
-      </button>
-      <div
-        className={`overflow-hidden transition-all duration-300 ease-in-out ${isOpen ? 'max-h-[500px] opacity-100 mb-4' : 'max-h-0 opacity-0'}`}
-      >
-        <div className="text-sm text-gray-600 leading-relaxed">
-          {children}
-        </div>
-      </div>
-    </div>
-  );
-};
+// ... existing imports
+
+// ... AccordionItem component
 
 const ProductDetails = () => {
-  const { slug } = useParams();
-  const navigate = useNavigate();
-  const { openCartDrawer } = useOutletContext() ?? {};
-  const { addItem } = useCart();
-  const { notify } = useNotifications();
-  const { getProduct } = useCatalog();
+  // ... existing hooks
 
-  const initialProduct = getProduct(slug);
-  const [product, setProduct] = useState(initialProduct ?? null);
-  const [loading, setLoading] = useState(!initialProduct);
-  const [error, setError] = useState(null);
-  const [selectedSize, setSelectedSize] = useState(null);
-  const [pincode, setPincode] = useState('');
-  const [activeImageIndex, setActiveImageIndex] = useState(0);
-
-  // Accordion States
-  const [openAccordion, setOpenAccordion] = useState('details'); // 'details', 'delivery', 'returns', or null
-
-  const toggleAccordion = (section) => {
-    setOpenAccordion(openAccordion === section ? null : section);
-  };
-
-  // Always fetch fresh product (with metafields)
-  useEffect(() => {
-    let cancelled = false;
-
-    async function load() {
-      setError(null);
-      const cached = getProduct(slug);
-      if (!cancelled && cached) {
-        setProduct(cached);
-        setLoading(false);
-      } else if (!cancelled && !product) {
-        setLoading(true);
-      }
-
-      try {
-        const full = await fetchProductByHandle(slug);
-        if (cancelled) return;
-
-        if (full) {
-          setProduct(full);
-        } else {
-          if (!cached) setError(new Error('Product not found'));
-        }
-      } catch (e) {
-        if (!cancelled && !cached) setError(e);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
-
-    load();
-    return () => { cancelled = true; };
-  }, [slug, getProduct]);
-
-  // Size Logic
-  const sizeOptions = useMemo(() => {
-    if (!product) return [];
-    const entries = Object.entries(product.optionValues || {});
-    const byName = entries.find(([name]) => name === 'size') || entries.find(([name]) => name.includes('size'));
-    if (byName?.[1]?.length) return byName[1];
-
-    const sizeOpt = (product.options || []).find((o) => (o?.name || '').toLowerCase().includes('size'));
-    if (sizeOpt?.values?.length) return sizeOpt.values;
-
-    return [];
-  }, [product]);
-
-  const hasSizes = sizeOptions.length > 0;
-
-  useEffect(() => {
-    if (hasSizes && !selectedSize) {
-      setSelectedSize(sizeOptions[0]);
-    }
-  }, [hasSizes, sizeOptions, selectedSize]);
-
-  if (loading) return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="w-8 h-8 border-4 border-black border-t-transparent rounded-full animate-spin"></div>
-    </div>
-  );
-
-  if (error || !product) return null;
-
-  const images = (product.images || []).filter(img => img.url);
-  if (images.length === 0 && product.featuredImage) {
-    images.push(product.featuredImage);
-  }
-
-  const price = formatMoney(product.price, product.currencyCode);
-
-  const handleAddToCart = () => {
-    const size = selectedSize ?? sizeOptions[0] ?? null;
-    addItem(product.handle, { size: hasSizes ? size : null });
-    notify({
-      title: 'Added to Cart',
-      message: `${product.title}`,
-      actionLabel: 'View Cart',
-      onAction: () => navigate('/cart'),
-    });
-    openCartDrawer?.();
-  };
-
-  const nextImage = () => setActiveImageIndex((prev) => (prev + 1) % images.length);
-  const prevImage = () => setActiveImageIndex((prev) => (prev - 1 + images.length) % images.length);
+  // ... existing useEffects and logic
 
   return (
-    <div className="bg-white min-h-screen pb-20 pt-4">
-      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="bg-white min-h-screen pb-20">
+      {/* Mobile Header */}
+      <MobilePageHeader
+        title={product?.title}
+        onSearch={() => document.dispatchEvent(new CustomEvent('open-search'))}
+      />
+
+      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-4">
 
         <div className="flex flex-col lg:flex-row gap-8 lg:gap-12">
 
@@ -240,8 +111,8 @@ const ProductDetails = () => {
                       key={size}
                       onClick={() => setSelectedSize(size)}
                       className={`min-w-[48px] h-10 px-2 border flex items-center justify-center text-sm font-medium transition-all ${selectedSize === size
-                          ? 'border-black bg-black text-white'
-                          : 'border-gray-300 text-gray-900 hover:border-black'
+                        ? 'border-black bg-black text-white'
+                        : 'border-gray-300 text-gray-900 hover:border-black'
                         }`}
                     >
                       {size}

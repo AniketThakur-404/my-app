@@ -5,6 +5,7 @@ import SkintoneSelector from '../components/SkintoneSelector';
 import OccasionSelector from '../components/OccasionSelector';
 import ProductGrid from '../components/ProductGrid';
 import VideoBanner from '../components/VideoBanner';
+import TypewriterSearch from '../components/TypewriterSearch';
 import { useCatalog } from '../contexts/catalog-context';
 import { toProductCard } from '../lib/shopify';
 import heroVideo from '../assets/Coin_in_Nature_Climate_Video.mp4';
@@ -104,12 +105,20 @@ export default function HomePage() {
   }, [fallbackMore, ensureCollectionProducts]);
 
   return (
-    <div className="bg-white">
-      {/* Original Structure: Hero -> Grid -> Video -> Grid */}
+    <div className="home-page">
+      {/* Hero Section with Overlay Search */}
+      <div className="relative">
+        {/* Mobile Search Bar Overlay */}
+        <div className="lg:hidden absolute top-4 left-0 w-full z-40 px-4">
+          <TypewriterSearch onSearchClick={() => document.dispatchEvent(new CustomEvent('open-search'))} />
+        </div>
 
-      <HeroWith3D heroVideoSrc={heroVideo} />
+        <HeroWith3D heroVideoSrc={heroVideo} />
+      </div>
 
-      <SkintoneSelector onSelect={setSelectedSkintone} />
+      <div className="site-shell section-gap">
+        <SkintoneSelector onSelect={setSelectedSkintone} />
+      </div>
 
       {selectedSkintone && (
         <div id="occasion-selector">

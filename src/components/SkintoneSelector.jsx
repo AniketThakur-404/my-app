@@ -167,12 +167,6 @@ export default function SkintoneSelector({ onSelect }) {
                         className="w-full h-full object-contain bg-white"
                         loading="lazy"
                       />
-                      {/* Optional: Add a subtle indicator to tap */}
-                      {status === 'center' && (
-                        <div className="absolute bottom-4 right-4 bg-black/70 text-white text-[10px] px-3 py-1 rounded-full uppercase tracking-widest font-bold backdrop-blur-sm">
-                          Tap to Select
-                        </div>
-                      )}
                     </div>
                   ) : (
                     // Desktop: Full Content
