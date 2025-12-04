@@ -1,6 +1,6 @@
 // src/components/Layout.jsx
 import React, { useMemo, useState } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import Navbar from './Navbar';
 import Footer from './Footer';
 import CatalogProvider from '../contexts/catalog-context';
@@ -48,6 +48,12 @@ const Layout = () => {
   const [searchOpen, setSearchOpen] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
 
+  React.useEffect(() => {
+    const handleOpenSearch = () => setSearchOpen(true);
+    document.addEventListener('open-search', handleOpenSearch);
+    return () => document.removeEventListener('open-search', handleOpenSearch);
+  }, []);
+
   const outletContext = useMemo(
     () => ({
       openCartDrawer: () => setCartOpen(true),
@@ -56,12 +62,15 @@ const Layout = () => {
     [],
   );
 
+  const location = useLocation();
+  const isMobileHome = location.pathname === '/';
+
   return (
     <CatalogProvider>
       <CartProvider>
         <NotificationProvider>
           <div className="bg-white text-neutral-900 min-h-screen flex flex-col">
-            <div className="sticky top-0 z-50">
+            <div className={`sticky top-0 z-50 ${isMobileHome ? 'hidden lg:block' : ''}`}>
               <Navbar
                 onSearchClick={() => setSearchOpen(true)}
                 onCartClick={() => setCartOpen(true)}

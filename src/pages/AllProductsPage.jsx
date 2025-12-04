@@ -1,3 +1,5 @@
+import MobilePageHeader from '../components/MobilePageHeader';
+
 import React, { useEffect, useMemo, useState } from 'react';
 import { useSearchParams, useLocation } from 'react-router-dom';
 import { ChevronDown } from 'lucide-react';
@@ -79,8 +81,14 @@ const AllProductsPage = ({ initialCategory = 'all' }) => {
 
   return (
     <div className="bg-white min-h-screen">
-      {/* Breadcrumb / Title Header */}
-      <div className="site-shell py-6 flex flex-col gap-2">
+      {/* Mobile Header */}
+      <MobilePageHeader
+        title={activeCategory === 'all' ? 'All Products' : activeCategory}
+        onSearch={() => document.dispatchEvent(new CustomEvent('open-search'))}
+      />
+
+      {/* Breadcrumb / Title Header - Desktop Only */}
+      <div className="hidden lg:flex site-shell py-6 flex-col gap-2">
         <div className="text-xs text-gray-500">
           Home / <span className="font-bold text-gray-800 capitalize">{activeCategory}</span>
         </div>
