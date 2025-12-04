@@ -130,7 +130,7 @@ export default function HomePage() {
 
       <div className="site-shell section-gap">
         <ProductGrid
-          title="More From EVRYDAE"
+          title="More From ARADHYA"
           products={moreProducts}
           ctaHref="/products"
           ctaLabel="View All"
