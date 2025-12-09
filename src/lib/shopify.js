@@ -46,6 +46,9 @@ async function graphql(query, variables = {}) {
 /* ================= SHARED HELPERS ================= */
 
 const defaultLanguage = import.meta.env.VITE_SHOPIFY_LANGUAGE || "en-US";
+const defaultCountryCode = (
+  import.meta.env.VITE_SHOPIFY_COUNTRY || "IN"
+).toUpperCase();
 
 const fallbackCurrency = (countryCode) => {
   switch (countryCode) {
@@ -62,7 +65,23 @@ const fallbackCurrency = (countryCode) => {
 
 const defaultCurrencyCode =
   import.meta.env.VITE_SHOPIFY_CURRENCY ||
-  fallbackCurrency((import.meta.env.VITE_SHOPIFY_COUNTRY || "US").toUpperCase());
+  fallbackCurrency(defaultCountryCode);
+
+const normaliseShopifyLanguage = (value) => {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "EN";
+  const normalized = raw.replace(/-/g, "_").toUpperCase();
+  const [lang] = normalized.split("_");
+  return /^[A-Z]{2}$/.test(lang) ? lang : "EN";
+};
+
+const shopifyLanguageCode = normaliseShopifyLanguage(defaultLanguage);
+
+const withContext = (variables = {}) => ({
+  country: defaultCountryCode,
+  language: shopifyLanguageCode,
+  ...variables,
+});
 
 const parseAmount = (amount) => {
   if (amount == null) return 0;
@@ -169,6 +188,12 @@ export function normalizeProductNode(node) {
       quantityAvailable: variant.quantityAvailable ?? null,
       price: parseAmount(variant.price?.amount ?? price),
       currencyCode: variant.price?.currencyCode || currencyCode,
+      compareAtPrice: variant.compareAtPrice
+        ? {
+            amount: parseAmount(variant.compareAtPrice.amount),
+            currencyCode: variant.compareAtPrice.currencyCode || currencyCode,
+          }
+        : null,
       selectedOptions:
         variant.selectedOptions?.map((opt) => ({
           name: opt?.name ?? "",
@@ -209,6 +234,8 @@ export function normalizeProductNode(node) {
     collections,
     metafields: node.metafields ?? [],
     seo: node.seo ?? null,
+    availableForSale: Boolean(node.availableForSale),
+    totalInventory: node.totalInventory ?? null,
   };
 }
 
@@ -468,7 +495,11 @@ export async function fetchNavigationMenu(handle = null) {
 /* ================= COLLECTIONS & PRODUCTS ================= */
 
 const ALL_PRODUCTS_QUERY = `#graphql
-  query AllProducts($limit: Int!) {
+  query AllProducts(
+    $limit: Int!,
+    $country: CountryCode!,
+    $language: LanguageCode!
+  ) @inContext(country: $country, language: $language) {
     products(first: $limit, sortKey: CREATED_AT, reverse: true) {
       nodes {
         id
@@ -479,6 +510,8 @@ const ALL_PRODUCTS_QUERY = `#graphql
         vendor
         productType
         tags
+        availableForSale
+        totalInventory
         featuredImage { url altText }
         images(first: 12) { nodes { url altText } }
         priceRange {
@@ -492,7 +525,9 @@ const ALL_PRODUCTS_QUERY = `#graphql
             title
             availableForSale
             sku
+            quantityAvailable
             price { amount currencyCode }
+            compareAtPrice { amount currencyCode }
             selectedOptions { name value }
           }
         }
@@ -503,14 +538,18 @@ const ALL_PRODUCTS_QUERY = `#graphql
 `;
 
 export async function fetchAllProducts(limit = 100) {
-  const data = await graphql(ALL_PRODUCTS_QUERY, { limit });
+  const data = await graphql(ALL_PRODUCTS_QUERY, withContext({ limit }));
   const nodes = filterVisibleNodes(data?.products?.nodes ?? []);
   return nodes.map(normalizeProductNode).filter(Boolean);
 }
 
 export async function fetchCollections(limit = 8) {
   const q = `#graphql
-  query Collections($limit:Int!) {
+  query Collections(
+    $limit:Int!,
+    $country: CountryCode!,
+    $language: LanguageCode!
+  ) @inContext(country: $country, language: $language) {
     collections(first:$limit, sortKey:UPDATED_AT) {
       nodes {
         id
@@ -522,14 +561,19 @@ export async function fetchCollections(limit = 8) {
       }
     }
   }`;
-  const data = await graphql(q, { limit });
+  const data = await graphql(q, withContext({ limit }));
   const nodes = data?.collections?.nodes ?? [];
   return nodes.map(mapCollectionNode).filter(Boolean);
 }
 
 export async function fetchCollectionByHandle(handle, limit = 24) {
   const q = `#graphql
-  query Collection($handle:String!, $limit:Int!) {
+  query Collection(
+    $handle:String!,
+    $limit:Int!,
+    $country: CountryCode!,
+    $language: LanguageCode!
+  ) @inContext(country: $country, language: $language) {
     collection(handle:$handle) {
       id
       title
@@ -545,6 +589,8 @@ export async function fetchCollectionByHandle(handle, limit = 24) {
           descriptionHtml
           vendor
           productType
+          availableForSale
+          totalInventory
           featuredImage { url altText }
           images(first: 12) { nodes { url altText } }
           priceRange { minVariantPrice { amount currencyCode } }
@@ -554,8 +600,10 @@ export async function fetchCollectionByHandle(handle, limit = 24) {
             nodes {
               id
               availableForSale
+              quantityAvailable
               selectedOptions { name value }
               price { amount currencyCode }
+              compareAtPrice { amount currencyCode }
               sku
             }
           }
@@ -564,7 +612,7 @@ export async function fetchCollectionByHandle(handle, limit = 24) {
       }
     }
   }`;
-  const data = await graphql(q, { handle, limit });
+  const data = await graphql(q, withContext({ handle, limit }));
   const collection = data?.collection;
   if (!collection) return null;
   const mapped = mapCollectionNode(collection);
@@ -580,7 +628,11 @@ export async function fetchCollectionByHandle(handle, limit = 24) {
 
 export async function fetchProductByHandle(handle) {
   const q = `#graphql
-  query ($handle:String!) {
+  query (
+    $handle:String!,
+    $country: CountryCode!,
+    $language: LanguageCode!
+  ) @inContext(country: $country, language: $language) {
     product(handle:$handle) {
       id
       handle
@@ -589,6 +641,8 @@ export async function fetchProductByHandle(handle) {
       productType
       description
       descriptionHtml
+      availableForSale
+      totalInventory
 
       featuredImage { url altText }
       images(first: 10) { nodes { url altText } }
@@ -604,8 +658,10 @@ export async function fetchProductByHandle(handle) {
           title
           availableForSale
           sku
+          quantityAvailable
           selectedOptions { name value }
           price { amount currencyCode }
+          compareAtPrice { amount currencyCode }
         }
       }
 
@@ -688,7 +744,7 @@ export async function fetchProductByHandle(handle) {
       vendor
     }
   }`;
-  const data = await graphql(q, { handle });
+  const data = await graphql(q, withContext({ handle }));
   return normalizeProductNode(data?.product ?? null);
 }
 
@@ -742,7 +798,12 @@ export function getSubheadingFromProduct(product) {
 
 export async function searchProducts(query, limit = 20) {
   const q = `#graphql
-  query Search($query:String!, $limit:Int!) {
+  query Search(
+    $query:String!,
+    $limit:Int!,
+    $country: CountryCode!,
+    $language: LanguageCode!
+  ) @inContext(country: $country, language: $language) {
     products(first:$limit, query:$query) {
       nodes {
         id
@@ -754,14 +815,19 @@ export async function searchProducts(query, limit = 20) {
       }
     }
   }`;
-  const data = await graphql(q, { query, limit });
+  const data = await graphql(q, withContext({ query, limit }));
   return filterVisibleNodes(data?.products?.nodes || []);
 }
 
 /* ---------- FULL FIELDS (for cards & fallbacks) ---------- */
 export async function searchProductsWithOptions(term, limit = 20) {
   const q = `#graphql
-  query SearchWithOptions($query:String!, $limit:Int!) {
+  query SearchWithOptions(
+    $query:String!,
+    $limit:Int!,
+    $country: CountryCode!,
+    $language: LanguageCode!
+  ) @inContext(country: $country, language: $language) {
     products(first:$limit, query:$query) {
       nodes {
         id
@@ -777,15 +843,17 @@ export async function searchProductsWithOptions(term, limit = 20) {
           nodes {
             id
             availableForSale
+            quantityAvailable
             selectedOptions { name value }
             price { amount currencyCode }
+            compareAtPrice { amount currencyCode }
           }
         }
         tags
       }
     }
   }`;
-  const data = await graphql(q, { query: term, limit });
+  const data = await graphql(q, withContext({ query: term, limit }));
   return filterVisibleNodes(data?.products?.nodes || []);
 }
 
@@ -815,7 +883,7 @@ export async function cartCreate(lines = []) {
   const input = {
     lines,
     buyerIdentity: {
-      countryCode: (import.meta.env.VITE_SHOPIFY_COUNTRY || "US").toUpperCase(),
+      countryCode: defaultCountryCode,
     },
   };
   const data = await graphql(q, { input });
@@ -959,7 +1027,12 @@ export async function customerAccessTokenDelete(accessToken) {
 
 export async function fetchProductsFromCollection(handle, limit = 12) {
   const q = `#graphql
-  query($handle:String!, $limit:Int!) {
+  query(
+    $handle:String!,
+    $limit:Int!,
+    $country: CountryCode!,
+    $language: LanguageCode!
+  ) @inContext(country: $country, language: $language) {
     collection(handle:$handle) {
       id
       title
@@ -976,7 +1049,7 @@ export async function fetchProductsFromCollection(handle, limit = 12) {
       }
     }
   }`;
-  const res = await graphql(q, { handle, limit });
+  const res = await graphql(q, withContext({ handle, limit }));
   return filterVisibleNodes(res.collection?.products?.nodes || []);
 }
 
@@ -1289,7 +1362,13 @@ export async function fetchRecommendedProducts(productOrId, limit = 8) {
 
 export async function searchProductsPage(query, limit = 24, after = null) {
   const q = `#graphql
-  query SearchPage($query:String!, $limit:Int!, $after:String) {
+  query SearchPage(
+    $query:String!,
+    $limit:Int!,
+    $after:String,
+    $country: CountryCode!,
+    $language: LanguageCode!
+  ) @inContext(country: $country, language: $language) {
     products(first:$limit, query:$query, after:$after) {
       pageInfo { hasNextPage endCursor }
       nodes {
@@ -1304,7 +1383,7 @@ export async function searchProductsPage(query, limit = 24, after = null) {
       }
     }
   }`;
-  const data = await graphql(q, { query, limit, after });
+  const data = await graphql(q, withContext({ query, limit, after }));
   const edge = data?.products;
   return {
     nodes: filterVisibleNodes(edge?.nodes || []),
@@ -1319,7 +1398,13 @@ export async function collectionProductsPage(
   after = null
 ) {
   const q = `#graphql
-  query CollectionPage($handle:String!, $limit:Int!, $after:String) {
+  query CollectionPage(
+    $handle:String!,
+    $limit:Int!,
+    $after:String,
+    $country: CountryCode!,
+    $language: LanguageCode!
+  ) @inContext(country: $country, language: $language) {
     collection(handle:$handle) {
       products(first:$limit, after:$after) {
         pageInfo { hasNextPage endCursor }
@@ -1336,7 +1421,7 @@ export async function collectionProductsPage(
       }
     }
   }`;
-  const data = await graphql(q, { handle, limit, after });
+  const data = await graphql(q, withContext({ handle, limit, after }));
   const edge = data?.collection?.products;
   return {
     nodes: filterVisibleNodes(edge?.nodes || []),
@@ -1350,7 +1435,13 @@ export async function collectionProductsPage(
 export const shopifyRuntime = {
   initialized: false,
   lastInitAt: 0,
-  env: { domain, apiVersion, endpoint },
+  env: {
+    domain,
+    apiVersion,
+    endpoint,
+    country: defaultCountryCode,
+    language: shopifyLanguageCode,
+  },
   collections: [],
   errors: [],
 };

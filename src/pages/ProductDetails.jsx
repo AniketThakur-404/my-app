@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useOutletContext, useParams } from 'react-router-dom';
+import { Link, useNavigate, useOutletContext, useParams } from 'react-router-dom';
 import {
   ChevronLeft,
   ChevronRight,
@@ -13,9 +13,13 @@ import { useCart } from '../contexts/cart-context';
 import {
   extractOptionValues,
   fetchProductByHandle,
+  fetchProductsFromCollection,
   findVariantForSize,
   formatMoney,
   getProductImageUrl,
+  toProductCard,
+  normaliseTokenValue,
+  searchProducts,
 } from '../lib/shopify';
 
 const AccordionItem = ({ title, isOpen, onClick, children }) => (
@@ -50,8 +54,10 @@ const ProductDetails = () => {
   const [activeImageIndex, setActiveImageIndex] = useState(0);
 
   const [selectedSize, setSelectedSize] = useState(null);
+  const [selectedColor, setSelectedColor] = useState(null);
   const [openAccordion, setOpenAccordion] = useState('details');
   const [pincode, setPincode] = useState('');
+  const [comboSingles, setComboSingles] = useState([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -108,12 +114,63 @@ const ProductDetails = () => {
   }, [product]);
 
   const sizeOptions = useMemo(() => extractOptionValues(product, 'Size'), [product]);
+  const colorOptions = useMemo(() => {
+    const primary = extractOptionValues(product, 'Color');
+    const alt = extractOptionValues(product, 'Colour');
+    const metaColors = Array.isArray(product?.metafields)
+      ? product.metafields
+          .filter((m) => {
+            const key = normaliseTokenValue(m?.key);
+            const ns = normaliseTokenValue(m?.namespace);
+            return (
+              (key === 'color' || key === 'colour') &&
+              ['custom', 'details', 'info', 'global', 'theme'].includes(ns)
+            );
+          })
+          .map((m) => m?.value)
+          .filter(Boolean)
+      : [];
+    const merged = [...primary, ...alt, ...metaColors].filter(Boolean);
+    return Array.from(new Set(merged));
+  }, [product]);
   const hasSizes = sizeOptions.length > 0;
+  const hasColors = colorOptions.length > 0;
 
-  const selectedVariant = useMemo(
-    () => findVariantForSize(product, selectedSize),
-    [product, selectedSize],
-  );
+  const selectedVariant = useMemo(() => {
+    if (!product) return null;
+    const variants = product.variants || [];
+    const targetSize = normaliseTokenValue(selectedSize);
+    const targetColor = normaliseTokenValue(selectedColor);
+
+    const matchOption = (variant, matcher) =>
+      variant?.selectedOptions?.some((opt) => matcher(opt)) ?? false;
+
+    const matchByBoth = variants.find((variant) => {
+      const sizeMatch =
+        !targetSize ||
+        matchOption(
+          variant,
+          (opt) =>
+            normaliseTokenValue(opt?.name).includes('size') &&
+            normaliseTokenValue(opt?.value) === targetSize,
+        );
+      const colorMatch =
+        !targetColor ||
+        matchOption(
+          variant,
+          (opt) => {
+            const name = normaliseTokenValue(opt?.name);
+            return (
+              (name.includes('color') || name.includes('colour')) &&
+              normaliseTokenValue(opt?.value) === targetColor
+            );
+          },
+        );
+      return sizeMatch && colorMatch;
+    });
+
+    return matchByBoth || findVariantForSize(product, selectedSize);
+  }, [product, selectedSize, selectedColor]);
 
   const price = useMemo(() => {
     if (!product) return '';
@@ -130,10 +187,34 @@ const ProductDetails = () => {
   }, [product, selectedVariant]);
 
   useEffect(() => {
+    if (!product) return;
+
+    const firstVariant = product.variants?.[0];
+    const variantSize =
+      firstVariant?.selectedOptions?.find((opt) =>
+        normaliseTokenValue(opt?.name).includes('size'),
+      )?.value;
+    const variantColor =
+      firstVariant?.selectedOptions?.find((opt) => {
+        const name = normaliseTokenValue(opt?.name);
+        return name.includes('color') || name.includes('colour');
+      })?.value;
+
     if (hasSizes && !selectedSize && sizeOptions.length) {
-      setSelectedSize(sizeOptions[0]);
+      setSelectedSize(variantSize || sizeOptions[0]);
     }
-  }, [hasSizes, sizeOptions, selectedSize]);
+    if (hasColors && !selectedColor && colorOptions.length) {
+      setSelectedColor(variantColor || colorOptions[0]);
+    }
+  }, [
+    product,
+    hasSizes,
+    sizeOptions,
+    selectedSize,
+    hasColors,
+    colorOptions,
+    selectedColor,
+  ]);
 
   const toggleAccordion = (key) =>
     setOpenAccordion((current) => (current === key ? null : key));
@@ -150,6 +231,68 @@ const ProductDetails = () => {
     addItem(product.handle, { size: selectedSize, quantity: 1 });
     openCartDrawer();
   };
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadSingles() {
+      const looksLikeCombo =
+        String(product?.title || '').toLowerCase().includes('combo') ||
+        product?.tags?.some((tag) => String(tag).toLowerCase().includes('combo'));
+      if (!looksLikeCombo) return;
+      const primaryCollection = product.collections?.[0]?.handle;
+      try {
+        let cards = [];
+        if (primaryCollection) {
+          const items = await fetchProductsFromCollection(primaryCollection, 8);
+          cards = items
+            .filter((item) => item?.handle && item.handle !== product.handle)
+            .map((item) => {
+              const priceInfo = item.priceRange?.minVariantPrice;
+              const enriched = {
+                ...item,
+                price: priceInfo?.amount ?? item.price,
+                currencyCode: priceInfo?.currencyCode ?? item.currencyCode,
+              };
+              return toProductCard(enriched);
+            })
+            .filter(Boolean);
+        }
+
+        if (!cards.length) {
+          const baseTerm = String(product?.title || '')
+            .replace(/\(combo\)/i, '')
+            .trim();
+          const results = await searchProducts(baseTerm || 'combo', 8);
+          cards = results
+            .filter((item) => item?.handle && item.handle !== product.handle)
+            .map((item) => {
+              const priceInfo = item.priceRange?.minVariantPrice;
+              return {
+                title: item.title,
+                handle: item.handle,
+                vendor: item.vendor,
+                price: formatMoney(priceInfo?.amount, priceInfo?.currencyCode),
+                img: item.featuredImage?.url,
+                hoverImg: null,
+                badge: item.tags?.includes('new') ? 'New' : undefined,
+                href: `/product/${item.handle}`,
+              };
+            })
+            .filter(Boolean);
+        }
+
+        if (!cancelled && cards.length) {
+          setComboSingles(cards);
+        }
+      } catch (err) {
+        console.warn('Failed to load singles for combo', err);
+      }
+    }
+    loadSingles();
+    return () => {
+      cancelled = true;
+    };
+  }, [product]);
 
   if (loading) {
     return (
@@ -180,9 +323,9 @@ const ProductDetails = () => {
         onSearch={() => document.dispatchEvent(new CustomEvent('open-search'))}
       />
 
-      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-4">
-        <div className="flex flex-col lg:flex-row gap-8 lg:gap-12">
-          <div className="lg:w-[60%] flex gap-4 lg:h-[calc(100vh-120px)] h-auto lg:sticky lg:top-24">
+      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+        <div className="flex flex-col lg:flex-row gap-6 lg:gap-10">
+          <div className="lg:w-[58%] flex gap-4 lg:h-[calc(100vh-140px)] h-auto lg:sticky lg:top-24">
             <div className="hidden lg:flex flex-col gap-3 w-20 overflow-y-auto no-scrollbar py-1">
               {images.map((img, idx) => (
                 <button
@@ -197,18 +340,18 @@ const ProductDetails = () => {
                   <img
                     src={img.url}
                     alt={img.alt || product.title}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-contain bg-white"
                   />
                 </button>
               ))}
             </div>
 
-            <div className="flex-1 relative bg-gray-50 h-full overflow-hidden group">
+            <div className="flex-1 relative bg-gray-50 h-full overflow-hidden group rounded">
               {images.length ? (
                 <img
                   src={images[activeImageIndex]?.url}
                   alt={product.title}
-                  className="w-full h-full object-cover object-center"
+                  className="w-full h-full object-contain object-center bg-white"
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-gray-400">
@@ -244,13 +387,59 @@ const ProductDetails = () => {
             </div>
           </div>
 
-          <div className="lg:w-[40%] pt-2 lg:pl-4">
-            <div className="flex justify-between items-start mb-2">
-              <h1 className="text-xl md:text-2xl font-normal text-gray-900">
-                {product.title}
-              </h1>
+          <div className="lg:w-[42%] pt-2 lg:pl-2">
+            <div className="flex justify-between items-start mb-3">
+              <div>
+                <p className="text-sm uppercase tracking-[0.2em] text-gray-500">Aradhya</p>
+                <h1 className="text-xl md:text-2xl font-semibold text-gray-900">
+                  {product.title}
+                </h1>
+              </div>
               <span className="text-xl font-bold text-gray-900">{price}</span>
             </div>
+
+            {hasColors && (
+              <div className="mb-3 text-sm text-gray-700">
+                <span className="font-semibold">Color: </span>
+                <span>{selectedColor || colorOptions[0]}</span>
+              </div>
+            )}
+
+            {hasColors && (
+              <div className="mb-8">
+                <div className="flex justify-between items-center mb-3">
+                  <span className="text-xs font-bold text-gray-900 uppercase tracking-wider">
+                    Colors
+                  </span>
+                  <span className="text-xs text-gray-500">
+                    {colorOptions.length} option{colorOptions.length === 1 ? '' : 's'}
+                  </span>
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                  {colorOptions.map((color) => {
+                    const active = selectedColor === color;
+                    return (
+                      <button
+                        key={color}
+                        onClick={() => setSelectedColor(color)}
+                        className={`flex items-center gap-2 px-3 h-10 border text-sm font-medium transition-all ${
+                          active
+                            ? 'border-black bg-black text-white'
+                            : 'border-gray-300 text-gray-900 hover:border-black'
+                        }`}
+                      >
+                        <span
+                          className="w-4 h-4 rounded-full border border-gray-200"
+                          style={{ backgroundColor: color.toLowerCase() }}
+                          aria-hidden
+                        />
+                        {color}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {hasSizes && (
               <div className="mb-8">
@@ -286,10 +475,49 @@ const ProductDetails = () => {
 
             <button
               onClick={handleAddToCart}
-              className="w-full bg-black text-white font-bold text-sm py-4 uppercase tracking-widest hover:bg-gray-900 transition-colors mb-8"
+              className="w-full bg-black text-white font-bold text-sm py-4 uppercase tracking-widest hover:bg-gray-900 transition-colors mb-6"
             >
               Add to Bag
             </button>
+
+            {comboSingles.length > 0 && (
+              <div className="mb-10">
+                <div className="flex justify-between items-center mb-3">
+                  <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider">
+                    Shop singles from this combo
+                  </h3>
+                  <span className="text-xs text-gray-500">
+                    {comboSingles.length} option{comboSingles.length === 1 ? '' : 's'}
+                  </span>
+                </div>
+                <div className="flex gap-3 overflow-x-auto no-scrollbar pb-1">
+                  {comboSingles.map((item) => (
+                    <Link
+                      key={item.handle}
+                      to={`/product/${item.handle}`}
+                      className="min-w-[160px] max-w-[180px] border border-gray-200 rounded-sm bg-white hover:shadow-md transition-shadow"
+                    >
+                      <div className="aspect-[3/4] bg-gray-50">
+                        <img
+                          src={item.img || item.featuredImage?.url}
+                          alt={item.title}
+                          className="w-full h-full object-contain"
+                        />
+                      </div>
+                      <div className="p-2">
+                        <p className="text-xs text-gray-500 uppercase tracking-[0.12em]">
+                          {item.vendor || 'Aradhya'}
+                        </p>
+                        <p className="text-sm font-semibold text-gray-900 truncate">
+                          {item.title}
+                        </p>
+                        <p className="text-sm font-bold text-gray-900">{item.price}</p>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="border-t border-gray-200">
               <AccordionItem
