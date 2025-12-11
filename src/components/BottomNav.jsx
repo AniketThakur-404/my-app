@@ -10,9 +10,9 @@ export default function BottomNav({ onSearchClick, onCartClick }) {
     const isActive = (path) => location.pathname === path;
 
     return (
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 py-2 px-6 flex justify-between items-end z-50 md:hidden pb-safe">
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 py-4 px-6 flex justify-between items-end z-50 md:hidden pb-safe">
             <Link to="/" className="flex flex-col items-center gap-1">
-                <Home className={`w-6 h-6 ${isActive('/') ? 'text-black stroke-[2.5px]' : 'text-gray-500 stroke-[1.5px]'}`} />
+                <Home className={`w-6 h-6 ${isActive('/') ? 'text-black stroke-[2.5px]' : 'text-gray-500 stroke-[1.5px]'}`} fill={isActive('/') ? 'currentColor' : 'none'} />
             </Link>
 
             <button onClick={onSearchClick} className="flex flex-col items-center gap-1">
@@ -33,7 +33,7 @@ export default function BottomNav({ onSearchClick, onCartClick }) {
             </button>
 
             <Link to="/account" className="flex flex-col items-center gap-1">
-                <User className={`w-6 h-6 ${isActive('/account') ? 'text-black stroke-[2.5px]' : 'text-gray-500 stroke-[1.5px]'}`} />
+                <User className={`w-6 h-6 ${isActive('/account') ? 'text-black stroke-[2.5px]' : 'text-gray-500 stroke-[1.5px]'}`} fill={isActive('/account') ? 'currentColor' : 'none'} />
             </Link>
         </div>
     );

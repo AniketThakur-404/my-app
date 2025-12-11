@@ -5,15 +5,22 @@ import {
   ChevronRight,
   Heart,
   Share2,
+  ShoppingBag,
   Truck,
+  Home,
+  Search,
+  User,
+  Menu,
 } from 'lucide-react';
 import MobilePageHeader from '../components/MobilePageHeader';
+import FrequentlyBoughtTogether from '../components/FrequentlyBoughtTogether';
 import { useCatalog } from '../contexts/catalog-context';
 import { useCart } from '../contexts/cart-context';
 import {
   extractOptionValues,
   fetchProductByHandle,
   fetchProductsFromCollection,
+  fetchAllProducts,
   findVariantForSize,
   formatMoney,
   getProductImageUrl,
@@ -41,7 +48,7 @@ const ProductDetails = () => {
   const { slug } = useParams();
   const navigate = useNavigate();
   const outletContext = useOutletContext() || {};
-  const openCartDrawer = outletContext?.openCartDrawer ?? (() => {});
+  const openCartDrawer = outletContext?.openCartDrawer ?? (() => { });
 
   const { getProduct } = useCatalog();
   const { addItem } = useCart();
@@ -58,6 +65,7 @@ const ProductDetails = () => {
   const [openAccordion, setOpenAccordion] = useState('details');
   const [pincode, setPincode] = useState('');
   const [comboSingles, setComboSingles] = useState([]);
+  const [relatedProducts, setRelatedProducts] = useState([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -119,16 +127,16 @@ const ProductDetails = () => {
     const alt = extractOptionValues(product, 'Colour');
     const metaColors = Array.isArray(product?.metafields)
       ? product.metafields
-          .filter((m) => {
-            const key = normaliseTokenValue(m?.key);
-            const ns = normaliseTokenValue(m?.namespace);
-            return (
-              (key === 'color' || key === 'colour') &&
-              ['custom', 'details', 'info', 'global', 'theme'].includes(ns)
-            );
-          })
-          .map((m) => m?.value)
-          .filter(Boolean)
+        .filter((m) => {
+          const key = normaliseTokenValue(m?.key);
+          const ns = normaliseTokenValue(m?.namespace);
+          return (
+            (key === 'color' || key === 'colour') &&
+            ['custom', 'details', 'info', 'global', 'theme'].includes(ns)
+          );
+        })
+        .map((m) => m?.value)
+        .filter(Boolean)
       : [];
     const merged = [...primary, ...alt, ...metaColors].filter(Boolean);
     return Array.from(new Set(merged));
@@ -294,6 +302,50 @@ const ProductDetails = () => {
     };
   }, [product]);
 
+  // Fetch related products for "Frequently Bought Together"
+  useEffect(() => {
+    let cancelled = false;
+
+    // Helper to check if product is a combo
+    const isComboProduct = (item) => {
+      const title = String(item?.title || '').toLowerCase();
+      const tags = Array.isArray(item?.tags) ? item.tags.map(t => String(t).toLowerCase()) : [];
+      return title.includes('combo') || tags.some(tag => tag.includes('combo'));
+    };
+
+    async function loadRelated() {
+      if (!product) return;
+      let related = [];
+
+      try {
+        // Fetch all products
+        const allProducts = await fetchAllProducts(30);
+        console.log('All products fetched:', allProducts.length);
+
+        // Filter out combos and current product - show ALL singles
+        related = allProducts
+          .filter((item) =>
+            item?.handle &&
+            item.handle !== product.handle &&
+            !isComboProduct(item)
+          )
+          .slice(0, 5);
+
+        console.log('Related products after filter:', related.length);
+      } catch (err) {
+        console.warn('Failed to load products for Frequently Bought Together', err);
+      }
+
+      if (!cancelled && related.length) {
+        setRelatedProducts(related);
+      }
+    }
+    loadRelated();
+    return () => {
+      cancelled = true;
+    };
+  }, [product]);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -317,25 +369,98 @@ const ProductDetails = () => {
   }
 
   return (
-    <div className="bg-white min-h-screen pb-20">
-      <MobilePageHeader
-        title={product?.title}
-        onSearch={() => document.dispatchEvent(new CustomEvent('open-search'))}
-      />
+    <div className="bg-white min-h-screen pb-40">
+
+      {/* Mobile Top Section: Image, Overlay Header */}
+      <div className="lg:hidden relative w-full bg-white mb-4">
+        {/* Overlay Header */}
+        <div className="absolute top-0 left-0 right-0 z-20 p-4 flex justify-between items-start pointer-events-none">
+          <button
+            onClick={() => navigate(-1)}
+            className="w-10 h-10 flex items-center justify-center pointer-events-auto"
+          >
+            <ChevronLeft className="w-8 h-8 text-black" />
+          </button>
+          <div className="flex flex-col gap-4 pointer-events-auto">
+            <button onClick={openCartDrawer} className="w-10 h-10 flex items-center justify-center relative">
+              <ShoppingBag className="w-6 h-6 text-black" />
+              {outletContext?.cartItemCount > 0 && (
+                <span className="absolute top-0 right-0 bg-red-600 text-white text-[10px] w-4 h-4 flex items-center justify-center rounded-full">
+                  {outletContext.cartItemCount}
+                </span>
+              )}
+            </button>
+            <button className="w-10 h-10 flex items-center justify-center">
+              <Heart className="w-6 h-6 text-black" />
+            </button>
+            <button className="w-10 h-10 flex items-center justify-center">
+              <Share2 className="w-6 h-6 text-black" />
+            </button>
+          </div>
+        </div>
+
+        {/* Mobile Image Carousel - Auto Height for full view */}
+        <div className="relative w-full overflow-hidden min-h-[400px]">
+          {images.length > 0 ? (
+            <img
+              src={images[activeImageIndex]?.url}
+              alt={product.title}
+              className="w-full h-auto object-cover"
+            />
+          ) : (
+            <div className="w-full aspect-[3/4] flex items-center justify-center text-gray-200 bg-gray-50">
+              No Image
+            </div>
+          )}
+
+          {/* Navigation Zones */}
+          {images.length > 1 && (
+            <>
+              <div
+                className="absolute top-0 left-0 w-1/3 h-full z-10"
+                onClick={(e) => { e.stopPropagation(); prevImage(); }}
+              />
+              <div
+                className="absolute top-0 right-0 w-1/3 h-full z-10"
+                onClick={(e) => { e.stopPropagation(); nextImage(); }}
+              />
+            </>
+          )}
+
+          {/* Dots */}
+          {images.length > 1 && (
+            <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-1.5 z-20 pointer-events-none">
+              {images.map((_, idx) => (
+                <div
+                  key={idx}
+                  className={`w-1.5 h-1.5 rounded-full transition-all ${idx === activeImageIndex ? 'bg-black w-3' : 'bg-black/20'
+                    }`}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="hidden lg:block">
+        <MobilePageHeader
+          title={product?.title}
+          onSearch={() => document.dispatchEvent(new CustomEvent('open-search'))}
+        />
+      </div>
 
       <div className="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-8 pt-6">
         <div className="flex flex-col lg:flex-row gap-6 lg:gap-10">
-          <div className="lg:w-[62%] flex gap-5 lg:min-h-[70vh] lg:max-h-[85vh] h-auto lg:sticky lg:top-24">
+          <div className="hidden lg:flex lg:w-[62%] gap-5 lg:min-h-[70vh] lg:max-h-[85vh] h-auto lg:sticky lg:top-24">
             <div className="hidden lg:flex flex-col gap-4 w-24 overflow-y-auto no-scrollbar py-1">
               {images.map((img, idx) => (
                 <button
                   key={img.url || idx}
                   onClick={() => setActiveImageIndex(idx)}
-                  className={`w-full aspect-[3/4] border transition-all ${
-                    activeImageIndex === idx
-                      ? 'border-black opacity-100'
-                      : 'border-transparent opacity-60 hover:opacity-100'
-                  }`}
+                  className={`w-full aspect-[3/4] border transition-all ${activeImageIndex === idx
+                    ? 'border-black opacity-100'
+                    : 'border-transparent opacity-60 hover:opacity-100'
+                    }`}
                 >
                   <img
                     src={img.url}
@@ -422,11 +547,10 @@ const ProductDetails = () => {
                       <button
                         key={color}
                         onClick={() => setSelectedColor(color)}
-                        className={`flex items-center gap-2 px-3 h-10 border text-sm font-medium transition-all ${
-                          active
-                            ? 'border-black bg-black text-white'
-                            : 'border-gray-300 text-gray-900 hover:border-black'
-                        }`}
+                        className={`flex items-center gap-2 px-3 h-10 border text-sm font-medium transition-all ${active
+                          ? 'border-black bg-black text-white'
+                          : 'border-gray-300 text-gray-900 hover:border-black'
+                          }`}
                       >
                         <span
                           className="w-4 h-4 rounded-full border border-gray-200"
@@ -456,11 +580,10 @@ const ProductDetails = () => {
                     <button
                       key={size}
                       onClick={() => setSelectedSize(size)}
-                      className={`min-w-[48px] h-10 px-2 border flex items-center justify-center text-sm font-medium transition-all ${
-                        selectedSize === size
-                          ? 'border-black bg-black text-white'
-                          : 'border-gray-300 text-gray-900 hover:border-black'
-                      }`}
+                      className={`min-w-[48px] h-10 px-2 border flex items-center justify-center text-sm font-medium transition-all ${selectedSize === size
+                        ? 'border-black bg-black text-white'
+                        : 'border-gray-300 text-gray-900 hover:border-black'
+                        }`}
                     >
                       {size}
                     </button>
@@ -473,12 +596,21 @@ const ProductDetails = () => {
               </div>
             )}
 
+            {/* Desktop Add to Bag - Hidden on Mobile, rendered as sticky footer instead */}
             <button
               onClick={handleAddToCart}
-              className="w-full bg-black text-white font-bold text-sm py-4 uppercase tracking-widest hover:bg-gray-900 transition-colors mb-6"
+              className="hidden lg:block w-full bg-black text-white font-bold text-sm py-4 uppercase tracking-widest hover:bg-gray-900 transition-colors mb-6"
             >
               Add to Bag
             </button>
+
+            {/* Frequently Bought Together Section */}
+            {relatedProducts.length > 0 && (
+              <FrequentlyBoughtTogether
+                products={relatedProducts}
+                openCartDrawer={openCartDrawer}
+              />
+            )}
 
             {comboSingles.length > 0 && (
               <div className="mb-10">
@@ -569,6 +701,69 @@ const ProductDetails = () => {
           </div>
         </div>
       </div>
+
+      {/* UPDATED: Sticky Footer with Spacing */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 lg:hidden flex flex-col shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] bg-white">
+        {/* Button Wrapper: Added px-4 (side spacing) and vertical padding */}
+        <div className="px-4 pt-4 pb-2">
+          <button
+            onClick={handleAddToCart}
+            className="w-full bg-black text-white h-12 flex items-center justify-center"
+          >
+            <span
+              className="font-bold text-lg uppercase tracking-wider relative"
+              style={{
+                // textShadow: '-2px -1px 0 #00ffff, 2px 1px 0 #ff0000',
+                letterSpacing: '0.05em'
+              }}
+            >
+              Add to Bag
+            </span>
+          </button>
+        </div>
+
+        {/* Bottom Menu Navigation */}
+        <div className="bg-white h-14 w-full flex items-center justify-between px-6 pb-2">
+          {/* Home */}
+          <Link to="/" className="flex flex-col items-center justify-center w-12 h-full text-gray-900">
+            <Home className="w-6 h-6 stroke-[1.5]" />
+          </Link>
+
+          {/* Search */}
+          <button
+            onClick={() => document.dispatchEvent(new CustomEvent('open-search'))}
+            className="flex flex-col items-center justify-center w-12 h-full text-gray-900"
+          >
+            <div className="relative">
+              <Search className="w-6 h-6 stroke-[1.5]" />
+            </div>
+          </button>
+
+          {/* NEW Text */}
+          <Link to="/new" className="flex flex-col items-center justify-center w-12 h-full">
+            <span className="text-sm font-normal tracking-wide text-gray-900">NEW</span>
+          </Link>
+
+          {/* Bag with Heart Badge */}
+          <button
+            onClick={openCartDrawer}
+            className="flex flex-col items-center justify-center w-12 h-full text-gray-900 relative"
+          >
+            <div className="relative">
+              <ShoppingBag className="w-6 h-6 stroke-[1.5]" />
+              <div className="absolute -bottom-1 -right-1 bg-white border border-gray-900 rounded-full w-4 h-4 flex items-center justify-center">
+                <Heart className="w-2.5 h-2.5 fill-black text-black" />
+              </div>
+            </div>
+          </button>
+
+          {/* Profile */}
+          <Link to="/account" className="flex flex-col items-center justify-center w-12 h-full text-gray-900">
+            <User className="w-6 h-6 stroke-[1.5]" />
+          </Link>
+        </div>
+      </div>
+
     </div>
   );
 };
