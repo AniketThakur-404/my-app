@@ -297,7 +297,7 @@ const ProductDetails = () => {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-gray-600">Loading product…</div>
+        <div className="text-gray-600">Loading product...</div>
       </div>
     );
   }
@@ -323,10 +323,10 @@ const ProductDetails = () => {
         onSearch={() => document.dispatchEvent(new CustomEvent('open-search'))}
       />
 
-      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+      <div className="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-8 pt-6">
         <div className="flex flex-col lg:flex-row gap-6 lg:gap-10">
-          <div className="lg:w-[58%] flex gap-4 lg:h-[calc(100vh-140px)] h-auto lg:sticky lg:top-24">
-            <div className="hidden lg:flex flex-col gap-3 w-20 overflow-y-auto no-scrollbar py-1">
+          <div className="lg:w-[62%] flex gap-5 lg:min-h-[70vh] lg:max-h-[85vh] h-auto lg:sticky lg:top-24">
+            <div className="hidden lg:flex flex-col gap-4 w-24 overflow-y-auto no-scrollbar py-1">
               {images.map((img, idx) => (
                 <button
                   key={img.url || idx}
@@ -387,7 +387,7 @@ const ProductDetails = () => {
             </div>
           </div>
 
-          <div className="lg:w-[42%] pt-2 lg:pl-2">
+          <div className="lg:w-[38%] pt-2 lg:pl-2">
             <div className="flex justify-between items-start mb-3">
               <div>
                 <p className="text-sm uppercase tracking-[0.2em] text-gray-500">Aradhya</p>
