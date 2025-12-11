@@ -1,14 +1,12 @@
-// src/pages/CartPage.jsx
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import ProductCard from '../components/ProductCard';
+import { ArrowLeft, BadgePercent, ChevronDown, Heart, Share2, Trash2, X } from 'lucide-react';
 import { useCart } from '../contexts/cart-context';
 import {
   cartCreate,
   fetchProductByHandle,
-  formatMoney,
-  toProductCard,
   findVariantForSize,
+  formatMoney,
   getProductImageUrl,
 } from '../lib/shopify';
 import { useCatalog } from '../contexts/catalog-context';
@@ -16,12 +14,11 @@ import { useCatalog } from '../contexts/catalog-context';
 const CartPage = () => {
   const navigate = useNavigate();
   const { items, updateQuantity, removeItem } = useCart();
-  const { products: catalogProducts, getProduct } = useCatalog();
+  const { getProduct } = useCatalog();
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [checkoutError, setCheckoutError] = useState(null);
   const [externalProducts, setExternalProducts] = useState({});
-
-
+  const [selectedIds, setSelectedIds] = useState({});
 
   const cartHandles = useMemo(
     () => Array.from(new Set(items.map((item) => item.slug).filter(Boolean))),
@@ -61,13 +58,10 @@ const CartPage = () => {
       }
 
       if (failures.length) {
-
         failures.forEach((handle) => {
           removeItem(handle);
         });
       }
-
-
     })();
 
     return () => {
@@ -122,40 +116,48 @@ const CartPage = () => {
     [cartItems],
   );
 
-  const monetisedItems = readyItems;
+  useEffect(() => {
+    setSelectedIds((prev) => {
+      const next = {};
+      readyItems.forEach((item) => {
+        const existing = prev[item.id];
+        next[item.id] = typeof existing === 'boolean' ? existing : true;
+      });
+      return next;
+    });
+  }, [readyItems]);
 
-  const subtotalAmount = monetisedItems.reduce(
+  const selectedCartItems = useMemo(
+    () => cartItems.filter((item) => selectedIds[item.id]),
+    [cartItems, selectedIds],
+  );
+
+  const selectedReadyItems = useMemo(
+    () => readyItems.filter((item) => selectedIds[item.id]),
+    [readyItems, selectedIds],
+  );
+
+  const selectionCount = selectedReadyItems.length;
+  const totalReady = readyItems.length;
+  const allSelected = totalReady > 0 && selectionCount === totalReady;
+
+  const subtotalAmount = selectedReadyItems.reduce(
     (acc, item) => acc + (item.lineTotal?.amount ?? 0),
     0,
   );
-  const subtotalCurrency = monetisedItems[0]?.lineTotal?.currency;
-  const deliveryAmount = monetisedItems.length > 0 ? 0 : 0;
-  const totalAmount = subtotalAmount + deliveryAmount;
-
-  const subtotalLabel = formatMoney(subtotalAmount, subtotalCurrency);
-  const deliveryLabel =
-    deliveryAmount === 0
-      ? 'Complimentary'
-      : formatMoney(deliveryAmount, subtotalCurrency);
-  const totalLabel = formatMoney(totalAmount, subtotalCurrency);
+  const subtotalCurrency = selectedReadyItems[0]?.lineTotal?.currency;
+  const totalLabel = formatMoney(subtotalAmount, subtotalCurrency);
 
   const isEmpty = items.length === 0;
-
-  const recommendedProducts = useMemo(() => {
-    if (!catalogProducts?.length) return [];
-    const handlesInCart = new Set(items.map((item) => item.slug));
-    return catalogProducts
-      .filter((product) => !handlesInCart.has(product.handle))
-      .map(toProductCard)
-      .filter(Boolean)
-      .slice(0, 4);
-  }, [catalogProducts, items]);
 
   const resolveVariantId = (product, size) =>
     findVariantForSize(product, size)?.id ?? null;
 
   const handleCheckout = async () => {
-    if (!items.length || isCheckingOut) return;
+    if (!selectedCartItems.length || isCheckingOut) {
+      setCheckoutError('Select at least one item to place your order.');
+      return;
+    }
 
     setCheckoutError(null);
     setIsCheckingOut(true);
@@ -163,13 +165,14 @@ const CartPage = () => {
     try {
       const productMap = new Map();
 
-      cartItems.forEach((item) => {
+      selectedCartItems.forEach((item) => {
         if (!item.loading && item.product) {
           productMap.set(item.handle, item.product);
         }
       });
 
-      const handlesToFetch = cartHandles.filter((handle) => !productMap.has(handle));
+      const selectedHandles = Array.from(new Set(selectedCartItems.map((item) => item.handle)));
+      const handlesToFetch = selectedHandles.filter((handle) => !productMap.has(handle));
       const fetchErrors = [];
 
       await Promise.all(
@@ -200,7 +203,7 @@ const CartPage = () => {
       const missingVariants = [];
       const lines = [];
 
-      for (const lineItem of cartItems) {
+      for (const lineItem of selectedCartItems) {
         if (lineItem.loading || !lineItem.product) {
           missingVariants.push({ handle: lineItem.handle, reason: 'product' });
           continue;
@@ -269,203 +272,265 @@ const CartPage = () => {
     }
   };
 
+  const address = {
+    name: 'Rik Samanta',
+    postalCode: '711413',
+    street: 'Sarada Majhpara Near Sarada Post Office , Sarda, Howrah',
+  };
+
+  if (isEmpty) {
+    return (
+      <section className="mx-auto flex min-h-screen w-full max-w-4xl flex-col items-center justify-center px-6 py-16 text-center">
+        <p className="text-sm font-semibold uppercase tracking-[0.3em] text-gray-500">
+          Your bag is empty
+        </p>
+        <Link
+          to="/"
+          className="mt-6 inline-flex rounded-full bg-[--color-primary] px-6 py-3 text-sm font-semibold uppercase tracking-wide text-white transition hover:bg-[--color-primary-dark]"
+        >
+          Explore Products
+        </Link>
+      </section>
+    );
+  }
+
   return (
-    <section className="mx-auto w-full max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
-      <div className="mb-8 border-b border-neutral-200 pb-4">
-        <h1 className="text-2xl font-semibold uppercase tracking-[0.3em] text-neutral-900">
-          Shopping Cart
-        </h1>
-      </div>
-
-      {isEmpty ? (
-        <div className="flex flex-col items-center gap-6 rounded-3xl border border-dashed border-neutral-200 px-6 py-16 text-center">
-          <p className="text-sm uppercase tracking-[0.3em] text-neutral-600">
-            Your cart is currently empty
-          </p>
-          <Link
-            to="/"
-            className="rounded-full border border-neutral-900 px-6 py-3 text-[11px] uppercase tracking-[0.32em] transition hover:bg-neutral-900 hover:text-white"
+    <div className="min-h-screen bg-gray-50 pb-28">
+      <header className="sticky top-0 z-30 bg-white shadow-[0_1px_0_rgba(0,0,0,0.05)]">
+        <div className="flex items-center justify-between px-4 py-3">
+          <button
+            type="button"
+            aria-label="Go back"
+            onClick={() => navigate(-1)}
+            className="p-1 text-gray-700"
           >
-            Explore Latest Drop
-          </Link>
+            <ArrowLeft className="h-6 w-6" />
+          </button>
+          <h1 className="text-base font-semibold tracking-wide text-gray-900">SHOPPING BAG</h1>
+          <span className="text-[11px] font-medium text-gray-500">STEP 1/3</span>
         </div>
-      ) : (
-        <div className="gap-12 lg:grid lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-          <div className="space-y-6">
-            {cartItems
-              .filter((item) => !item.loading && item.product)
-              .map((item) => {
-                const imageUrl = getProductImageUrl(item.product);
-                const unitPriceLabel = formatMoney(
-                  item.unitPrice.amount,
-                  item.unitPrice.currency,
-                );
-                const lineTotalLabel = formatMoney(
-                  item.lineTotal.amount,
-                  item.lineTotal.currency,
-                );
+      </header>
 
-                return (
-                  <div
-                    key={item.id}
-                    className="grid grid-cols-[120px_minmax(0,1fr)] gap-4 rounded-2xl border border-neutral-200 p-4 sm:gap-6"
-                  >
-                    <Link
-                      to={`/product/${item.handle}`}
-                      className="relative block overflow-hidden rounded-xl bg-neutral-100"
+      <section className="border-b border-gray-200 bg-white px-4 py-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="space-y-1">
+            <p className="text-sm text-gray-700">
+              Deliver to:{' '}
+              <span className="font-semibold text-gray-900">
+                {address.name} , {address.postalCode}
+              </span>
+            </p>
+            <p className="text-[13px] text-gray-500">{address.street}</p>
+          </div>
+          <button
+            type="button"
+            className="text-sm font-bold text-[--color-primary]"
+            onClick={() => navigate('/checkout/address')}
+          >
+            Change
+          </button>
+        </div>
+      </section>
+
+      <section className="mt-2 flex items-center justify-between border-y border-gray-200 bg-white px-4 py-3">
+        <label className="flex items-center gap-2 text-sm font-semibold text-gray-800">
+          <input
+            type="checkbox"
+            checked={allSelected}
+            onChange={() => {
+              setSelectedIds((prev) => {
+                const next = {};
+                readyItems.forEach((item) => {
+                  next[item.id] = allSelected ? false : true;
+                });
+                return next;
+              });
+            }}
+            className="h-4 w-4 rounded border-gray-300 text-[--color-primary] focus:ring-[--color-primary]"
+          />
+          <span>
+            {selectionCount}/{totalReady} items selected
+          </span>
+        </label>
+
+        <div className="flex items-center gap-4 text-gray-500">
+          <button type="button" className="p-1" aria-label="Share bag">
+            <Share2 className="h-5 w-5" />
+          </button>
+          <button type="button" className="p-1" aria-label="Apply offer">
+            <BadgePercent className="h-5 w-5" />
+          </button>
+          <button
+            type="button"
+            className="p-1"
+            aria-label="Remove all"
+            onClick={() => readyItems.forEach((item) => removeItem(item.handle, item.size ?? null))}
+          >
+            <Trash2 className="h-5 w-5" />
+          </button>
+          <button type="button" className="p-1" aria-label="Save for later">
+            <Heart className="h-5 w-5" />
+          </button>
+        </div>
+      </section>
+
+      <div className="divide-y divide-gray-100">
+        {readyItems.map((item) => {
+          const imageUrl = getProductImageUrl(item.product);
+          const unitPriceLabel = formatMoney(item.unitPrice.amount, item.unitPrice.currency);
+          const compareAt = item.variant?.compareAtPrice?.amount;
+          const compareAtLabel =
+            compareAt && compareAt > item.unitPrice.amount
+              ? formatMoney(compareAt, item.unitPrice.currency)
+              : null;
+          const discount =
+            compareAt && compareAt > item.unitPrice.amount
+              ? formatMoney(compareAt - item.unitPrice.amount, item.unitPrice.currency)
+              : null;
+          const lowStock =
+            Number.isFinite(item.variant?.quantityAvailable) &&
+            item.variant.quantityAvailable > 0 &&
+            item.variant.quantityAvailable <= 10
+              ? `${item.variant.quantityAvailable} left`
+              : null;
+          const returnDays = item.product.tags?.includes('return-14') ? 14 : 7;
+
+          return (
+            <div key={item.id} className="bg-white px-4 py-3">
+              <div className="flex gap-3">
+                <div className="pt-1">
+                  <input
+                    type="checkbox"
+                    checked={!!selectedIds[item.id]}
+                    onChange={() =>
+                      setSelectedIds((prev) => ({ ...prev, [item.id]: !prev[item.id] }))
+                    }
+                    className="h-4 w-4 rounded border-gray-300 text-[--color-primary] focus:ring-[--color-primary]"
+                  />
+                </div>
+
+                <Link
+                  to={`/product/${item.handle}`}
+                  className="h-28 w-24 flex-shrink-0 overflow-hidden rounded-md bg-gray-100"
+                >
+                  {imageUrl ? (
+                    <img
+                      src={imageUrl}
+                      alt={item.product.title}
+                      className="h-full w-full object-cover"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-[11px] uppercase tracking-[0.25em] text-gray-400">
+                      No Image
+                    </div>
+                  )}
+                </Link>
+
+                <div className="flex-1 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="space-y-1">
+                      <p className="text-sm font-semibold leading-snug text-gray-900">
+                        {item.product.title}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        Sold by: {item.product.vendor || 'Brand'}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      aria-label="Remove item"
+                      onClick={() => removeItem(item.handle, item.size ?? null)}
+                      className="p-1 text-gray-500 hover:text-gray-700"
                     >
-                      {imageUrl ? (
-                        <img
-                          src={imageUrl}
-                          alt={item.product.title}
-                          className="h-full w-full object-cover"
-                          loading="lazy"
-                        />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center text-[10px] uppercase tracking-[0.3em] text-neutral-400">
-                          No Image
-                        </div>
-                      )}
-                    </Link>
+                      <X className="h-5 w-5" />
+                    </button>
+                  </div>
 
-                    <div className="flex flex-col justify-between">
-                      <div className="space-y-3">
-                        <div className="flex flex-wrap items-center gap-3">
-                          <Link
-                            to={`/product/${item.handle}`}
-                            className="text-sm font-semibold uppercase tracking-[0.25em] text-neutral-900 transition hover:underline"
-                          >
-                            {item.product.title}
-                          </Link>
-                          {item.size && (
-                            <span className="rounded-full border border-neutral-200 px-3 py-1 text-[10px] uppercase tracking-[0.25em] text-neutral-600">
-                              Size {item.size}
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex flex-wrap items-center gap-4 text-xs uppercase tracking-[0.25em] text-neutral-500">
-                          <div className="flex items-center rounded-full border border-neutral-200">
-                            <button
-                              type="button"
-                              aria-label="Decrease quantity"
-                              className="px-3 py-1 text-neutral-500 transition hover:text-neutral-900"
-                              onClick={() =>
-                                updateQuantity(
-                                  item.handle,
-                                  item.size ?? null,
-                                  item.quantity - 1,
-                                )
-                              }
-                            >
-                              -
-                            </button>
-                            <span className="px-3 py-1 text-neutral-900">{item.quantity}</span>
-                            <button
-                              type="button"
-                              aria-label="Increase quantity"
-                              className="px-3 py-1 text-neutral-500 transition hover:text-neutral-900"
-                              onClick={() =>
-                                updateQuantity(
-                                  item.handle,
-                                  item.size ?? null,
-                                  item.quantity + 1,
-                                )
-                              }
-                            >
-                              +
-                            </button>
-                          </div>
-                          <button
-                            type="button"
-                            className="text-neutral-500 underline-offset-4 transition hover:text-neutral-900 hover:underline"
-                            onClick={() => removeItem(item.handle, item.size ?? null)}
-                          >
-                            Remove
-                          </button>
-                        </div>
-                        <p className="text-sm font-medium tracking-[0.2em] text-neutral-900">
-                          {unitPriceLabel}
-                        </p>
-                      </div>
-
-                      <div className="flex items-center justify-between text-xs uppercase tracking-[0.25em]">
-                        <button
-                          type="button"
-                          className="text-neutral-500 underline-offset-4 transition hover:text-neutral-900 hover:underline"
-                          onClick={() =>
-                            navigate(`/product/${item.handle}`, {
-                              state: { focusSize: item.size },
-                            })
-                          }
-                        >
-                          Edit Selection
-                        </button>
-                        <span className="font-semibold text-neutral-900">{lineTotalLabel}</span>
+                  <div className="flex flex-wrap items-center gap-3 text-sm">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold uppercase text-gray-600">Size:</span>
+                      <div className="flex items-center gap-1 rounded border border-gray-300 px-2 py-1 text-gray-800">
+                        <span>{item.size || 'Default'}</span>
+                        <ChevronDown className="h-4 w-4 text-gray-500" />
                       </div>
                     </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold uppercase text-gray-600">Qty:</span>
+                      <div className="flex items-center gap-1 rounded border border-gray-300 px-2 py-1">
+                        <button
+                          type="button"
+                          className="px-2 text-gray-600"
+                        onClick={() =>
+                            updateQuantity(item.handle, item.size ?? null, item.quantity - 1)
+                          }
+                        >
+                          -
+                        </button>
+                        <span className="px-1 text-gray-900">{item.quantity}</span>
+                        <button
+                          type="button"
+                          className="px-2 text-gray-600"
+                          onClick={() =>
+                            updateQuantity(item.handle, item.size ?? null, item.quantity + 1)
+                          }
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+
+                    {lowStock && (
+                      <span className="rounded border border-orange-400 px-2 py-0.5 text-[11px] font-semibold text-orange-500">
+                        {lowStock}
+                      </span>
+                    )}
                   </div>
-                );
-              })}
-          </div>
 
-          <aside className="mt-10 space-y-6 rounded-3xl border border-neutral-200 p-6 lg:mt-0">
-            <h2 className="text-sm uppercase tracking-[0.32em] text-neutral-600">
-              Order Summary
-            </h2>
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="font-semibold text-gray-900">{unitPriceLabel}</span>
+                    {compareAtLabel && (
+                      <span className="text-gray-400 line-through">{compareAtLabel}</span>
+                    )}
+                    {discount && (
+                      <span className="font-semibold text-[--color-primary]">{discount} OFF</span>
+                    )}
+                  </div>
 
-            <dl className="space-y-3 text-sm tracking-[0.2em] text-neutral-600">
-              <div className="flex justify-between">
-                <dt>Subtotal</dt>
-                <dd className="text-neutral-900">{subtotalLabel}</dd>
+                  <p className="text-[13px] text-gray-600">
+                    <span className="font-semibold">{returnDays} days</span> return available
+                  </p>
+                </div>
               </div>
-              <div className="flex justify-between">
-                <dt>Shipping</dt>
-                <dd className="text-neutral-900">{deliveryLabel}</dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="font-semibold text-neutral-900">Total</dt>
-                <dd className="font-semibold text-neutral-900">{totalLabel}</dd>
-              </div>
-            </dl>
+            </div>
+          );
+        })}
+      </div>
 
-            <button
-              type="button"
-              onClick={handleCheckout}
-              disabled={isCheckingOut || readyItems.length === 0}
-              className="w-full rounded-full bg-neutral-900 py-4 text-[11px] uppercase tracking-[0.35em] text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:bg-neutral-600 disabled:hover:bg-neutral-600"
-            >
-              {isCheckingOut ? 'Redirecting…' : 'Proceed to Checkout'}
-            </button>
-
-            {checkoutError && (
-              <p className="rounded-2xl border border-red-400 bg-red-50 px-4 py-3 text-xs leading-relaxed tracking-[0.2em] text-red-700">
-                {checkoutError}
-              </p>
-            )}
-
-            <p className="text-xs leading-relaxed tracking-[0.25em] text-neutral-500">
-              Duties and taxes are calculated at checkout. Free exchanges within India within 30 days
-              of dispatch.
-            </p>
-          </aside>
+      {checkoutError && (
+        <div className="mx-4 mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+          {checkoutError}
         </div>
       )}
 
-      {recommendedProducts.length > 0 && (
-        <section className="mt-24">
-          <div className="border-t border-neutral-200 py-4">
-            <h2 className="text-[11px] uppercase tracking-[0.35em] text-neutral-600">
-              Recommended for You
-            </h2>
-          </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {recommendedProducts.map((item) => (
-              <ProductCard key={item.href} item={item} />
-            ))}
-          </div>
-        </section>
-      )}
-    </section>
+      <div className="mt-2 bg-white px-4 py-3 text-center text-sm font-semibold text-gray-700">
+        {selectionCount === 0
+          ? 'No item selected, select at least one item to place order.'
+          : `Selected Total: ${totalLabel}`}
+      </div>
+
+      <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-gray-200 bg-white px-4 py-3 shadow-[0_-4px_10px_rgba(0,0,0,0.04)]">
+        <button
+          type="button"
+          onClick={handleCheckout}
+          disabled={isCheckingOut || selectionCount === 0}
+          className="w-full rounded-sm bg-[--color-primary] py-3 text-sm font-bold uppercase tracking-wide text-white transition hover:bg-[--color-primary-dark] disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500"
+        >
+          {isCheckingOut ? 'Placing order...' : 'Place Order'}
+        </button>
+      </div>
+    </div>
   );
 };
 

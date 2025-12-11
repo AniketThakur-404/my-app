@@ -1,8 +1,7 @@
-// src/components/CartDrawer.jsx
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion as Motion } from 'framer-motion';
-import { Minus, Plus, Trash2, X } from 'lucide-react';
+import { BadgePercent, ChevronDown, Heart, Share2, Trash2, X } from 'lucide-react';
 import { useCart } from '../contexts/cart-context';
 import { useCatalog } from '../contexts/catalog-context';
 import {
@@ -17,7 +16,7 @@ const CartDrawer = ({ open, onClose }) => {
   const { items, updateQuantity, removeItem } = useCart();
   const { getProduct } = useCatalog();
   const [externalProducts, setExternalProducts] = useState({});
-
+  const [selectedIds, setSelectedIds] = useState({});
 
   const cartHandles = useMemo(
     () => Array.from(new Set(items.map((item) => item.slug).filter(Boolean))),
@@ -31,7 +30,6 @@ const CartDrawer = ({ open, onClose }) => {
     if (!missingHandles.length) return;
 
     let cancelled = false;
-
 
     (async () => {
       const fetched = {};
@@ -60,8 +58,6 @@ const CartDrawer = ({ open, onClose }) => {
           removeItem(handle);
         });
       }
-
-
     })();
 
     return () => {
@@ -116,11 +112,31 @@ const CartDrawer = ({ open, onClose }) => {
     [cartItems],
   );
 
-  const subtotalAmount = readyItems.reduce(
+  useEffect(() => {
+    setSelectedIds((prev) => {
+      const next = {};
+      readyItems.forEach((item) => {
+        const existing = prev[item.id];
+        next[item.id] = typeof existing === 'boolean' ? existing : true;
+      });
+      return next;
+    });
+  }, [readyItems]);
+
+  const selectedReadyItems = useMemo(
+    () => readyItems.filter((item) => selectedIds[item.id]),
+    [readyItems, selectedIds],
+  );
+
+  const selectionCount = selectedReadyItems.length;
+  const totalReady = readyItems.length;
+  const allSelected = totalReady > 0 && selectionCount === totalReady;
+
+  const subtotalAmount = selectedReadyItems.reduce(
     (acc, item) => acc + (item.lineTotal?.amount ?? 0),
     0,
   );
-  const subtotalCurrency = readyItems[0]?.lineTotal?.currency;
+  const subtotalCurrency = selectedReadyItems[0]?.lineTotal?.currency;
   const subtotalLabel = formatMoney(subtotalAmount, subtotalCurrency);
 
   useEffect(() => {
@@ -132,15 +148,28 @@ const CartDrawer = ({ open, onClose }) => {
     };
   }, [open]);
 
-  const handleViewBag = () => {
+  const address = {
+    name: 'Rik Samanta',
+    postalCode: '711413',
+    street: 'Sarada Majhpara Near Sarada Post Office , Sarda, Howrah',
+  };
+
+  const handleSelectAll = () => {
+    setSelectedIds((prev) => {
+      const next = {};
+      readyItems.forEach((item) => {
+        next[item.id] = allSelected ? false : true;
+      });
+      return next;
+    });
+  };
+
+  const handlePlaceOrder = () => {
     onClose();
     navigate('/cart');
   };
 
-  const handleCheckout = () => {
-    onClose();
-    navigate('/cart');
-  };
+  const empty = items.length === 0;
 
   return (
     <AnimatePresence>
@@ -161,45 +190,133 @@ const CartDrawer = ({ open, onClose }) => {
             transition={{ duration: 0.2 }}
           />
           <Motion.aside
-            className="relative ml-auto flex h-full w-full max-w-md flex-col bg-white shadow-2xl"
+            className="relative ml-auto flex h-full w-full max-w-md flex-col bg-gray-50 shadow-2xl"
             initial={{ x: '100%' }}
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', stiffness: 260, damping: 28 }}
           >
-            <header className="flex items-center justify-between border-b border-neutral-200 px-6 py-4">
-              <h2 className="text-xs uppercase tracking-[0.35em] text-neutral-600">Your Cart</h2>
+            <header className="flex items-center justify-between border-b border-gray-200 bg-white px-4 py-3">
+              <div className="space-y-1">
+                <p className="text-sm font-semibold text-gray-900">SHOPPING BAG</p>
+                <p className="text-xs font-medium text-gray-500">Step 1/3</p>
+              </div>
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-full border border-transparent p-2 transition hover:border-neutral-200"
+                className="rounded-full border border-transparent p-2 transition hover:border-gray-200"
                 aria-label="Close cart"
               >
-                <X className="h-4 w-4" />
+                <X className="h-5 w-5" />
               </button>
             </header>
 
-            <div className="flex-1 overflow-y-auto px-6 py-6">
-              {cartItems.length === 0 ? (
-                <p className="text-sm uppercase tracking-[0.3em] text-neutral-500">
-                  Your cart is currently empty.
-                </p>
-              ) : (
-                <div className="space-y-6">
-                  {readyItems.map((item) => {
-                      const imageUrl = getProductImageUrl(item.product);
-                      const unitPriceLabel = formatMoney(
-                        item.unitPrice.amount,
-                        item.unitPrice.currency,
-                      );
-                      const lineTotalLabel = formatMoney(
-                        item.lineTotal.amount,
-                        item.lineTotal.currency,
-                      );
+            <section className="border-b border-gray-200 bg-white px-4 py-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="space-y-1">
+                  <p className="text-sm text-gray-700">
+                    Deliver to:{' '}
+                    <span className="font-semibold text-gray-900">
+                      {address.name} , {address.postalCode}
+                    </span>
+                  </p>
+                  <p className="text-[13px] text-gray-500">{address.street}</p>
+                </div>
+                <button
+                  type="button"
+                  className="text-sm font-bold text-[--color-primary]"
+                  onClick={() => {
+                    onClose();
+                    navigate('/checkout/address');
+                  }}
+                >
+                  Change
+                </button>
+              </div>
+            </section>
 
-                      return (
-                        <div key={item.id} className="flex gap-4">
-                          <div className="h-24 w-24 overflow-hidden rounded-xl bg-neutral-100">
+            {!empty && (
+              <section className="mt-2 flex items-center justify-between border-y border-gray-200 bg-white px-4 py-3">
+                <label className="flex items-center gap-2 text-sm font-semibold text-gray-800">
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    onChange={handleSelectAll}
+                    className="h-4 w-4 rounded border-gray-300 text-[--color-primary] focus:ring-[--color-primary]"
+                  />
+                  <span>
+                    {selectionCount}/{totalReady} items selected
+                  </span>
+                </label>
+
+                <div className="flex items-center gap-3 text-gray-500">
+                  <button type="button" className="p-1" aria-label="Share bag">
+                    <Share2 className="h-5 w-5" />
+                  </button>
+                  <button type="button" className="p-1" aria-label="Apply offer">
+                    <BadgePercent className="h-5 w-5" />
+                  </button>
+                  <button
+                    type="button"
+                    className="p-1"
+                    aria-label="Remove all"
+                    onClick={() =>
+                      readyItems.forEach((item) => removeItem(item.handle, item.size ?? null))
+                    }
+                  >
+                    <Trash2 className="h-5 w-5" />
+                  </button>
+                  <button type="button" className="p-1" aria-label="Save for later">
+                    <Heart className="h-5 w-5" />
+                  </button>
+                </div>
+              </section>
+            )}
+
+            <div className="flex-1 overflow-y-auto">
+              {empty ? (
+                <div className="flex h-full items-center justify-center bg-white px-6 py-10 text-center">
+                  <p className="text-sm font-semibold uppercase tracking-[0.25em] text-gray-500">
+                    Your cart is currently empty.
+                  </p>
+                </div>
+              ) : (
+                <div className="divide-y divide-gray-100">
+                  {readyItems.map((item) => {
+                    const imageUrl = getProductImageUrl(item.product);
+                    const unitPriceLabel = formatMoney(item.unitPrice.amount, item.unitPrice.currency);
+                    const compareAt = item.variant?.compareAtPrice?.amount;
+                    const compareAtLabel =
+                      compareAt && compareAt > item.unitPrice.amount
+                        ? formatMoney(compareAt, item.unitPrice.currency)
+                        : null;
+                    const discount =
+                      compareAt && compareAt > item.unitPrice.amount
+                        ? formatMoney(compareAt - item.unitPrice.amount, item.unitPrice.currency)
+                        : null;
+                    const lowStock =
+                      Number.isFinite(item.variant?.quantityAvailable) &&
+                      item.variant.quantityAvailable > 0 &&
+                      item.variant.quantityAvailable <= 10
+                        ? `${item.variant.quantityAvailable} left`
+                        : null;
+                    const returnDays = item.product.tags?.includes('return-14') ? 14 : 7;
+
+                    return (
+                      <div key={item.id} className="bg-white px-4 py-3">
+                        <div className="flex gap-3">
+                          <div className="pt-1">
+                            <input
+                              type="checkbox"
+                              checked={!!selectedIds[item.id]}
+                              onChange={() =>
+                                setSelectedIds((prev) => ({ ...prev, [item.id]: !prev[item.id] }))
+                              }
+                              className="h-4 w-4 rounded border-gray-300 text-[--color-primary] focus:ring-[--color-primary]"
+                            />
+                          </div>
+
+                          <div className="h-24 w-20 flex-shrink-0 overflow-hidden rounded-md bg-gray-100">
                             {imageUrl ? (
                               <img
                                 src={imageUrl}
@@ -208,91 +325,126 @@ const CartDrawer = ({ open, onClose }) => {
                                 loading="lazy"
                               />
                             ) : (
-                              <div className="flex h-full w-full items-center justify-center text-[10px] uppercase tracking-[0.3em] text-neutral-400">
+                              <div className="flex h-full w-full items-center justify-center text-[11px] uppercase tracking-[0.25em] text-gray-400">
                                 No Image
                               </div>
                             )}
                           </div>
-                          <div className="flex flex-1 flex-col justify-between text-xs uppercase tracking-[0.25em]">
-                            <div>
-                              <p className="text-neutral-900">{item.product.title}</p>
-                              <p className="mt-1 text-neutral-500">{unitPriceLabel}</p>
-                              {item.size && (
-                                <p className="mt-1 text-neutral-500">Size {item.size}</p>
-                              )}
-                            </div>
-                            <div className="mt-2 flex items-center justify-between text-neutral-600">
-                              <div className="flex items-center rounded-full border border-neutral-200">
-                                <button
-                                  type="button"
-                                  aria-label="Decrease quantity"
-                                  className="px-3 py-1 transition hover:text-neutral-900 active:scale-95"
-                                  onClick={() =>
-                                    updateQuantity(
-                                      item.handle,
-                                      item.size ?? null,
-                                      item.quantity - 1,
-                                    )
-                                  }
-                                >
-                                  <Minus className="h-3 w-3" />
-                                </button>
-                                <span className="px-3 py-1 text-neutral-900">{item.quantity}</span>
-                                <button
-                                  type="button"
-                                  aria-label="Increase quantity"
-                                  className="px-3 py-1 transition hover:text-neutral-900 active:scale-95"
-                                  onClick={() =>
-                                    updateQuantity(
-                                      item.handle,
-                                      item.size ?? null,
-                                      item.quantity + 1,
-                                    )
-                                  }
-                                >
-                                  <Plus className="h-3 w-3" />
-                                </button>
+
+                          <div className="flex-1 space-y-2">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="space-y-1">
+                                <p className="text-sm font-semibold leading-snug text-gray-900">
+                                  {item.product.title}
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                  Sold by: {item.product.vendor || 'Brand'}
+                                </p>
                               </div>
                               <button
                                 type="button"
                                 aria-label="Remove item"
-                                className="rounded-full border border-transparent p-2 transition hover:border-neutral-200 active:scale-95"
                                 onClick={() => removeItem(item.handle, item.size ?? null)}
+                                className="p-1 text-gray-500 hover:text-gray-700"
                               >
-                                <Trash2 className="h-4 w-4" />
+                                <X className="h-5 w-5" />
                               </button>
                             </div>
-                            <div className="mt-2 text-neutral-900">{lineTotalLabel}</div>
+
+                            <div className="flex flex-wrap items-center gap-3 text-sm">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-semibold uppercase text-gray-600">
+                                  Size:
+                                </span>
+                                <div className="flex items-center gap-1 rounded border border-gray-300 px-2 py-1 text-gray-800">
+                                  <span>{item.size || 'Default'}</span>
+                                  <ChevronDown className="h-4 w-4 text-gray-500" />
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-semibold uppercase text-gray-600">
+                                  Qty:
+                                </span>
+                                <div className="flex items-center gap-1 rounded border border-gray-300 px-2 py-1">
+                                  <button
+                                    type="button"
+                                    className="px-2 text-gray-600"
+                                    onClick={() =>
+                                      updateQuantity(item.handle, item.size ?? null, item.quantity - 1)
+                                    }
+                                  >
+                                    -
+                                  </button>
+                                  <span className="px-1 text-gray-900">{item.quantity}</span>
+                                  <button
+                                    type="button"
+                                    className="px-2 text-gray-600"
+                                    onClick={() =>
+                                      updateQuantity(item.handle, item.size ?? null, item.quantity + 1)
+                                    }
+                                  >
+                                    +
+                                  </button>
+                                </div>
+                              </div>
+
+                              {lowStock && (
+                                <span className="rounded border border-orange-400 px-2 py-0.5 text-[11px] font-semibold text-orange-500">
+                                  {lowStock}
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-2 text-sm">
+                              <span className="font-semibold text-gray-900">{unitPriceLabel}</span>
+                              {compareAtLabel && (
+                                <span className="text-gray-400 line-through">{compareAtLabel}</span>
+                              )}
+                              {discount && (
+                                <span className="font-semibold text-[--color-primary]">
+                                  {discount} OFF
+                                </span>
+                              )}
+                            </div>
+
+                            <p className="text-[13px] text-gray-600">
+                              <span className="font-semibold">{returnDays} days</span> return available
+                            </p>
                           </div>
                         </div>
-                      );
-                    })}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
 
-            <footer className="border-t border-neutral-200 px-6 py-6">
-              <div className="flex items-center justify-between text-xs uppercase tracking-[0.3em] text-neutral-600">
-                <span>Subtotal</span>
-                <span className="text-neutral-900">{subtotalLabel}</span>
+            {!empty && (
+              <div className="border-t border-gray-200 bg-white px-4 py-3 text-center text-sm font-semibold text-gray-700">
+                {selectionCount === 0
+                  ? 'No item selected, select at least one item to place order.'
+                  : `Selected Total: ${subtotalLabel}`}
               </div>
-              <p className="mt-2 text-[10px] uppercase tracking-[0.32em] text-neutral-500">
-                Taxes and shipping calculated at checkout.
-              </p>
+            )}
 
-              <div className="mt-6 space-y-3">
+            <footer className="border-t border-gray-200 bg-white px-4 py-4">
+              <div className="space-y-3">
                 <button
                   type="button"
-                  onClick={handleCheckout}
-                  disabled={readyItems.length === 0}
-                  className="w-full rounded-full bg-neutral-900 py-3 text-[11px] uppercase tracking-[0.35em] text-white transition duration-200 hover:bg-neutral-800 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
+                  onClick={handlePlaceOrder}
+                  disabled={selectionCount === 0}
+                  className="w-full rounded-sm bg-[--color-primary] py-3 text-sm font-bold uppercase tracking-wide text-white transition hover:bg-[--color-primary-dark] disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500"
                 >
-                  Checkout
+                  Place Order
                 </button>
                 <button
                   type="button"
-                  onClick={handleViewBag}
-                  className="w-full rounded-full border border-neutral-900 py-3 text-[11px] uppercase tracking-[0.35em] text-neutral-900 transition duration-200 hover:bg-neutral-900 hover:text-white active:scale-95"
+                  onClick={() => {
+                    onClose();
+                    navigate('/cart');
+                  }}
+                  className="w-full rounded-sm border border-gray-900 py-3 text-sm font-semibold uppercase tracking-wide text-gray-900 transition hover:bg-gray-900 hover:text-white"
                 >
                   View Full Cart
                 </button>
@@ -306,4 +458,3 @@ const CartDrawer = ({ open, onClose }) => {
 };
 
 export default CartDrawer;
-
