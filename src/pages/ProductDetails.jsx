@@ -459,6 +459,14 @@ const ProductDetails = () => {
           }
         }
 
+        // 3. Sort the final selection: Top -> Bottom -> Shoe -> Other
+        const sortOrder = ['top', 'bottom', 'shoe', 'other'];
+        selection.sort((a, b) => {
+          const catA = getCategory(a);
+          const catB = getCategory(b);
+          return sortOrder.indexOf(catA) - sortOrder.indexOf(catB);
+        });
+
         related = selection;
 
         // Pre-select first item if available
