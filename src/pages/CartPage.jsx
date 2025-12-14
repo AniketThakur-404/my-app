@@ -272,11 +272,7 @@ const CartPage = () => {
     }
   };
 
-  const address = {
-    name: 'Rik Samanta',
-    postalCode: '711413',
-    street: 'Sarada Majhpara Near Sarada Post Office , Sarda, Howrah',
-  };
+
 
   if (isEmpty) {
     return (
@@ -286,7 +282,7 @@ const CartPage = () => {
         </p>
         <Link
           to="/"
-          className="mt-6 inline-flex rounded-full bg-[--color-primary] px-6 py-3 text-sm font-semibold uppercase tracking-wide text-white transition hover:bg-[--color-primary-dark]"
+          className="mt-6 inline-flex rounded-full bg-gray-900 px-6 py-3 text-sm font-semibold uppercase tracking-wide text-white transition hover:bg-gray-800"
         >
           Explore Products
         </Link>
@@ -311,26 +307,7 @@ const CartPage = () => {
         </div>
       </header>
 
-      <section className="border-b border-gray-200 bg-white px-4 py-3">
-        <div className="flex items-start justify-between gap-3">
-          <div className="space-y-1">
-            <p className="text-sm text-gray-700">
-              Deliver to:{' '}
-              <span className="font-semibold text-gray-900">
-                {address.name} , {address.postalCode}
-              </span>
-            </p>
-            <p className="text-[13px] text-gray-500">{address.street}</p>
-          </div>
-          <button
-            type="button"
-            className="text-sm font-bold text-[--color-primary]"
-            onClick={() => navigate('/checkout/address')}
-          >
-            Change
-          </button>
-        </div>
-      </section>
+
 
       <section className="mt-2 flex items-center justify-between border-y border-gray-200 bg-white px-4 py-3">
         <label className="flex items-center gap-2 text-sm font-semibold text-gray-800">
@@ -346,14 +323,14 @@ const CartPage = () => {
                 return next;
               });
             }}
-            className="h-4 w-4 rounded border-gray-300 text-[--color-primary] focus:ring-[--color-primary]"
+            className="h-4 w-4 rounded border-gray-300 text-black focus:ring-black"
           />
-          <span>
+          <span className="whitespace-nowrap">
             {selectionCount}/{totalReady} items selected
           </span>
         </label>
 
-        <div className="flex items-center gap-4 text-gray-500">
+        <div className="flex items-center gap-2 sm:gap-4 text-gray-500">
           <button type="button" className="p-1" aria-label="Share bag">
             <Share2 className="h-5 w-5" />
           </button>
@@ -389,8 +366,8 @@ const CartPage = () => {
               : null;
           const lowStock =
             Number.isFinite(item.variant?.quantityAvailable) &&
-            item.variant.quantityAvailable > 0 &&
-            item.variant.quantityAvailable <= 10
+              item.variant.quantityAvailable > 0 &&
+              item.variant.quantityAvailable <= 10
               ? `${item.variant.quantityAvailable} left`
               : null;
           const returnDays = item.product.tags?.includes('return-14') ? 14 : 7;
@@ -405,7 +382,7 @@ const CartPage = () => {
                     onChange={() =>
                       setSelectedIds((prev) => ({ ...prev, [item.id]: !prev[item.id] }))
                     }
-                    className="h-4 w-4 rounded border-gray-300 text-[--color-primary] focus:ring-[--color-primary]"
+                    className="h-4 w-4 rounded border-gray-300 text-black focus:ring-black"
                   />
                 </div>
 
@@ -430,7 +407,7 @@ const CartPage = () => {
                 <div className="flex-1 space-y-2">
                   <div className="flex items-start justify-between gap-2">
                     <div className="space-y-1">
-                      <p className="text-sm font-semibold leading-snug text-gray-900">
+                      <p className="text-sm font-semibold leading-snug text-gray-900 break-words">
                         {item.product.title}
                       </p>
                       <p className="text-xs text-gray-500">
@@ -462,7 +439,7 @@ const CartPage = () => {
                         <button
                           type="button"
                           className="px-2 text-gray-600"
-                        onClick={() =>
+                          onClick={() =>
                             updateQuantity(item.handle, item.size ?? null, item.quantity - 1)
                           }
                         >
@@ -494,7 +471,7 @@ const CartPage = () => {
                       <span className="text-gray-400 line-through">{compareAtLabel}</span>
                     )}
                     {discount && (
-                      <span className="font-semibold text-[--color-primary]">{discount} OFF</span>
+                      <span className="font-semibold text-red-600">{discount} OFF</span>
                     )}
                   </div>
 
@@ -514,18 +491,24 @@ const CartPage = () => {
         </div>
       )}
 
-      <div className="mt-2 bg-white px-4 py-3 text-center text-sm font-semibold text-gray-700">
-        {selectionCount === 0
-          ? 'No item selected, select at least one item to place order.'
-          : `Selected Total: ${totalLabel}`}
-      </div>
 
-      <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-gray-200 bg-white px-4 py-3 shadow-[0_-4px_10px_rgba(0,0,0,0.04)]">
+
+      <div className="fixed bottom-[60px] md:bottom-0 left-0 right-0 z-40 border-t border-gray-200 bg-white px-4 py-3 shadow-[0_-4px_10px_rgba(0,0,0,0.04)]">
+        <div className="mb-3 text-center text-sm font-bold text-gray-800">
+          {selectionCount > 0 ? (
+            <span className="flex items-center justify-between gap-2 flex-wrap">
+              <span className="break-words">Total ({selectionCount} items):</span>
+              <span className="text-lg whitespace-nowrap">{totalLabel}</span>
+            </span>
+          ) : (
+            <span className="text-gray-500 font-normal">Select items to checkout</span>
+          )}
+        </div>
         <button
           type="button"
           onClick={handleCheckout}
           disabled={isCheckingOut || selectionCount === 0}
-          className="w-full rounded-sm bg-[--color-primary] py-3 text-sm font-bold uppercase tracking-wide text-white transition hover:bg-[--color-primary-dark] disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500"
+          className="w-full rounded-sm bg-gray-900 py-3 text-sm font-bold uppercase tracking-wide text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500"
         >
           {isCheckingOut ? 'Placing order...' : 'Place Order'}
         </button>

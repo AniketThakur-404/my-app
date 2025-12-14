@@ -66,6 +66,7 @@ const ProductDetails = () => {
   const [pincode, setPincode] = useState('');
   const [comboSingles, setComboSingles] = useState([]);
   const [relatedProducts, setRelatedProducts] = useState([]);
+  const [selectedFbtItems, setSelectedFbtItems] = useState(new Set());
 
   useEffect(() => {
     let cancelled = false;
@@ -236,7 +237,19 @@ const ProductDetails = () => {
 
   const handleAddToCart = () => {
     if (!product?.handle) return;
+
+    // Add main product
     addItem(product.handle, { size: selectedSize, quantity: 1 });
+
+    // Add selected FBT items
+    if (selectedFbtItems.size > 0 && relatedProducts.length > 0) {
+      relatedProducts.forEach(item => {
+        if (selectedFbtItems.has(item.handle)) {
+          addItem(item.handle, { quantity: 1 });
+        }
+      });
+    }
+
     openCartDrawer();
   };
 
@@ -310,28 +323,137 @@ const ProductDetails = () => {
     const isComboProduct = (item) => {
       const title = String(item?.title || '').toLowerCase();
       const tags = Array.isArray(item?.tags) ? item.tags.map(t => String(t).toLowerCase()) : [];
-      return title.includes('combo') || tags.some(tag => tag.includes('combo'));
+      return title.includes('combo') || title.includes('combination') || tags.some(tag => tag.includes('combo')) || tags.some(tag => tag.includes('combination'));
+    };
+
+    // Helper to check category
+    const isAllowedCategory = (item) => {
+      const type = String(item?.productType || item?.type || '').toLowerCase();
+      const title = String(item?.title || '').toLowerCase();
+      // Also check tags just in case
+      const tags = Array.isArray(item?.tags) ? item.tags.map(t => String(t).toLowerCase()) : [];
+
+      const allowed = ['casual shirt', 'pant', 't-shirt', 'shirt', 'jeans', 'trousers', 'tshirt', 'tee', 'polo', 'shoe', 'sneaker', 'footwear', 'combo', 'combination', 'set'];
+
+      return allowed.some(cat =>
+        type.includes(cat) ||
+        title.includes(cat) ||
+        tags.some(t => t.includes(cat))
+      );
+    };
+
+    const getCategory = (item) => {
+      const text = (String(item?.productType || '') + ' ' + String(item?.title || '') + ' ' + (item?.tags || []).join(' ')).toLowerCase();
+      if (text.includes('combo') || text.includes('combination')) return 'combo';
+      if (text.includes('pant') || text.includes('trouser') || text.includes('jeans')) return 'bottom';
+      if (text.includes('shirt') || text.includes('t-shirt') || text.includes('tee') || text.includes('polo') || text.includes('top')) return 'top';
+      if (text.includes('shoe') || text.includes('sneaker') || text.includes('footwear')) return 'shoe';
+      return 'other';
     };
 
     async function loadRelated() {
       if (!product) return;
+
+      const currentCat = getCategory(product);
+
+      // Define limits: "Under like this combo" -> likely means 1 bottom, 1 shoe, 1 other top?
+      // User said: "if single tshirt then show pants and shirt and shoes"
+      // So targeting: Bottoms, Shoes, and other Tops (maybe layering).
+
+      let targetKeywords = [];
+      if (currentCat === 'top') {
+        targetKeywords = ['pant', 'trouser', 'jeans', 'shoe', 'sneaker'];
+      } else if (currentCat === 'bottom') {
+        targetKeywords = ['shirt', 't-shirt', 'polo', 'tee', 'shoe', 'sneaker'];
+      } else {
+        // Fallback for shoes or others: show tops and bottoms
+        targetKeywords = ['shirt', 't-shirt', 'pant', 'trouser'];
+      }
+
+      // 1. Check if CURRENT product is in allowed category
+      if (!isAllowedCategory(product)) {
+        setRelatedProducts([]);
+        return;
+      }
+
       let related = [];
 
       try {
-        // Fetch all products
-        const allProducts = await fetchAllProducts(30);
-        console.log('All products fetched:', allProducts.length);
+        // Fetch more products for better random pool
+        const allProducts = await fetchAllProducts(60);
 
-        // Filter out combos and current product - show ALL singles
-        related = allProducts
-          .filter((item) =>
-            item?.handle &&
-            item.handle !== product.handle &&
-            !isComboProduct(item)
-          )
-          .slice(0, 5);
+        // Helper to shuffle array
+        const shuffle = (array) => array.sort(() => 0.5 - Math.random());
 
-        console.log('Related products after filter:', related.length);
+        // Candidates: Exclude current, exclude combos (from being recommended), ensure available
+        const candidates = allProducts.filter((item) =>
+          item?.handle &&
+          item.handle !== product.handle &&
+          !isComboProduct(item)
+        );
+
+        // Bucket candidates
+        const buckets = {
+          top: [],
+          bottom: [],
+          shoe: [],
+          other: []
+        };
+
+        candidates.forEach(item => {
+          buckets[getCategory(item)].push(item);
+        });
+
+        // Determine priority of categories to pick from
+        let priorityCats = [];
+        if (currentCat === 'top') {
+          // T-shirt -> suggest Pants, Shoes
+          priorityCats = ['bottom', 'shoe', 'top', 'other'];
+        } else if (currentCat === 'bottom') {
+          // Pant -> suggest Tops, Shoes
+          priorityCats = ['top', 'shoe', 'bottom', 'other'];
+        } else if (currentCat === 'shoe') {
+          // Shoes -> suggest Tops, Bottoms
+          priorityCats = ['top', 'bottom', 'shoe', 'other'];
+        } else if (currentCat === 'combo') {
+          // Combo -> suggest Shoes first, then others
+          priorityCats = ['shoe', 'top', 'bottom', 'other'];
+        } else {
+          // Other -> suggest mix
+          priorityCats = ['top', 'bottom', 'shoe', 'other'];
+        }
+
+        const selection = [];
+        const seenHandles = new Set();
+
+        // 1. Try to pick one unique product from each priority category
+        priorityCats.forEach(cat => {
+          if (selection.length >= 3) return;
+          const pool = shuffle(buckets[cat]);
+          const item = pool.find(p => !seenHandles.has(p.handle));
+          if (item) {
+            selection.push(item);
+            seenHandles.add(item.handle);
+          }
+        });
+
+        // 2. If still need items, fill with randoms from any allowed complementary category
+        if (selection.length < 3) {
+          const leftovers = shuffle(candidates.filter(p => !seenHandles.has(p.handle)));
+          for (const item of leftovers) {
+            if (selection.length >= 3) break;
+            selection.push(item);
+            seenHandles.add(item.handle);
+          }
+        }
+
+        related = selection;
+
+        // Pre-select first item if available
+        if (!cancelled && related.length > 0) {
+          setSelectedFbtItems(new Set([related[0].handle]));
+        }
+
       } catch (err) {
         console.warn('Failed to load products for Frequently Bought Together', err);
       }
@@ -604,13 +726,7 @@ const ProductDetails = () => {
               Add to Bag
             </button>
 
-            {/* Frequently Bought Together Section */}
-            {relatedProducts.length > 0 && (
-              <FrequentlyBoughtTogether
-                products={relatedProducts}
-                openCartDrawer={openCartDrawer}
-              />
-            )}
+
 
             {comboSingles.length > 0 && (
               <div className="mb-10">
@@ -649,6 +765,15 @@ const ProductDetails = () => {
                   ))}
                 </div>
               </div>
+            )}
+
+            {/* Frequently Bought Together Section (Moved Below Combo) */}
+            {relatedProducts.length > 0 && (
+              <FrequentlyBoughtTogether
+                products={relatedProducts}
+                selectedHandles={selectedFbtItems}
+                onSelectionChange={setSelectedFbtItems}
+              />
             )}
 
             <div className="border-t border-gray-200">

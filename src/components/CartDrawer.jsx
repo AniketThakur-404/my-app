@@ -148,11 +148,8 @@ const CartDrawer = ({ open, onClose }) => {
     };
   }, [open]);
 
-  const address = {
-    name: 'Rik Samanta',
-    postalCode: '711413',
-    street: 'Sarada Majhpara Near Sarada Post Office , Sarda, Howrah',
-  };
+  // Address removed as requested
+
 
   const handleSelectAll = () => {
     setSelectedIds((prev) => {
@@ -211,29 +208,7 @@ const CartDrawer = ({ open, onClose }) => {
               </button>
             </header>
 
-            <section className="border-b border-gray-200 bg-white px-4 py-3">
-              <div className="flex items-start justify-between gap-3">
-                <div className="space-y-1">
-                  <p className="text-sm text-gray-700">
-                    Deliver to:{' '}
-                    <span className="font-semibold text-gray-900">
-                      {address.name} , {address.postalCode}
-                    </span>
-                  </p>
-                  <p className="text-[13px] text-gray-500">{address.street}</p>
-                </div>
-                <button
-                  type="button"
-                  className="text-sm font-bold text-[--color-primary]"
-                  onClick={() => {
-                    onClose();
-                    navigate('/checkout/address');
-                  }}
-                >
-                  Change
-                </button>
-              </div>
-            </section>
+            {/* Address section removed */}
 
             {!empty && (
               <section className="mt-2 flex items-center justify-between border-y border-gray-200 bg-white px-4 py-3">
@@ -296,8 +271,8 @@ const CartDrawer = ({ open, onClose }) => {
                         : null;
                     const lowStock =
                       Number.isFinite(item.variant?.quantityAvailable) &&
-                      item.variant.quantityAvailable > 0 &&
-                      item.variant.quantityAvailable <= 10
+                        item.variant.quantityAvailable > 0 &&
+                        item.variant.quantityAvailable <= 10
                         ? `${item.variant.quantityAvailable} left`
                         : null;
                     const returnDays = item.product.tags?.includes('return-14') ? 14 : 7;
@@ -334,7 +309,7 @@ const CartDrawer = ({ open, onClose }) => {
                           <div className="flex-1 space-y-2">
                             <div className="flex items-start justify-between gap-2">
                               <div className="space-y-1">
-                                <p className="text-sm font-semibold leading-snug text-gray-900">
+                                <p className="text-sm font-semibold leading-snug text-gray-900 break-words">
                                   {item.product.title}
                                 </p>
                                 <p className="text-xs text-gray-500">
@@ -428,13 +403,13 @@ const CartDrawer = ({ open, onClose }) => {
               </div>
             )}
 
-            <footer className="border-t border-gray-200 bg-white px-4 py-4">
+            <footer className="border-t border-gray-200 bg-white px-4 py-4 md:pb-4">
               <div className="space-y-3">
                 <button
                   type="button"
                   onClick={handlePlaceOrder}
                   disabled={selectionCount === 0}
-                  className="w-full rounded-sm bg-[--color-primary] py-3 text-sm font-bold uppercase tracking-wide text-white transition hover:bg-[--color-primary-dark] disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500"
+                  className="w-full rounded-sm bg-gray-900 py-3 text-sm font-bold uppercase tracking-wide text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500"
                 >
                   Place Order
                 </button>
