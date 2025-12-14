@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import MobilePageHeader from '../components/MobilePageHeader';
 import FrequentlyBoughtTogether from '../components/FrequentlyBoughtTogether';
+import SizeSelectionModal from '../components/SizeSelectionModal';
 import { useCatalog } from '../contexts/catalog-context';
 import { useCart } from '../contexts/cart-context';
 import {
@@ -67,6 +68,7 @@ const ProductDetails = () => {
   const [comboSingles, setComboSingles] = useState([]);
   const [relatedProducts, setRelatedProducts] = useState([]);
   const [selectedFbtItems, setSelectedFbtItems] = useState(new Set());
+  const [showSizeModal, setShowSizeModal] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -238,19 +240,29 @@ const ProductDetails = () => {
   const handleAddToCart = () => {
     if (!product?.handle) return;
 
-    // Add main product
-    addItem(product.handle, { size: selectedSize, quantity: 1 });
-
-    // Add selected FBT items
-    if (selectedFbtItems.size > 0 && relatedProducts.length > 0) {
-      relatedProducts.forEach(item => {
-        if (selectedFbtItems.has(item.handle)) {
-          addItem(item.handle, { quantity: 1 });
-        }
-      });
+    // If FBT items are selected, we MUST ask for their sizes first
+    if (selectedFbtItems.size > 0) {
+      setShowSizeModal(true);
+      return;
     }
 
-    openCartDrawer();
+    // Otherwise, just add main product and go to cart
+    addItem(product.handle, { size: selectedSize, quantity: 1 });
+    navigate('/cart');
+  };
+
+  const handleConfirmSizes = (fbtItemsWithSizes) => {
+    // 1. Add Main Product
+    addItem(product.handle, { size: selectedSize, quantity: 1 });
+
+    // 2. Add FBT Items
+    fbtItemsWithSizes.forEach(({ handle, size }) => {
+      addItem(handle, { size, quantity: 1 });
+    });
+
+    // 3. Close & Redirect
+    setShowSizeModal(false);
+    navigate('/cart');
   };
 
   useEffect(() => {
@@ -775,6 +787,14 @@ const ProductDetails = () => {
                 onSelectionChange={setSelectedFbtItems}
               />
             )}
+
+            <SizeSelectionModal
+              isOpen={showSizeModal}
+              onClose={() => setShowSizeModal(false)}
+              items={relatedProducts.filter(p => selectedFbtItems.has(p.handle))}
+              mainProduct={product}
+              onConfirm={handleConfirmSizes}
+            />
 
             <div className="border-t border-gray-200">
               <AccordionItem
