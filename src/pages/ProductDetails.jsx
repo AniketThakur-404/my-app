@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import MobilePageHeader from '../components/MobilePageHeader';
 import FrequentlyBoughtTogether from '../components/FrequentlyBoughtTogether';
+import ProductGrid from '../components/ProductGrid';
 import SizeSelectionModal from '../components/SizeSelectionModal';
 import { useCatalog } from '../contexts/catalog-context';
 import { useCart } from '../contexts/cart-context';
@@ -67,6 +68,7 @@ const ProductDetails = () => {
   const [pincode, setPincode] = useState('');
   const [comboSingles, setComboSingles] = useState([]);
   const [relatedProducts, setRelatedProducts] = useState([]);
+  const [recommendedProducts, setRecommendedProducts] = useState([]);
   const [selectedFbtItems, setSelectedFbtItems] = useState(new Set());
   const [showSizeModal, setShowSizeModal] = useState(false);
 
@@ -488,6 +490,112 @@ const ProductDetails = () => {
     };
   }, [product]);
 
+  // Fetch "You Might Also Like" products (Same Collection or Category)
+  useEffect(() => {
+    let cancelled = false;
+    async function loadRecommended() {
+      if (!product) return;
+
+      try {
+        let recs = [];
+        // 1. Try Primary Collection
+        const primaryCollection = product.collections?.[0]?.handle;
+        if (primaryCollection) {
+          const items = await fetchProductsFromCollection(primaryCollection, 10);
+          recs = items;
+        }
+
+        // 2. Fallback to Search by Type if no collection or few results
+        if ((!recs || recs.length < 4) && product.productType) {
+          const typeRecs = await searchProducts(product.productType, 10);
+          recs = [...recs, ...typeRecs];
+        }
+
+        // 3. Fallback to generic "Latest" if still nothing (using fetchAllProducts)
+        if (!recs || recs.length < 4) {
+          const all = await fetchAllProducts(12);
+          recs = [...recs, ...all];
+        }
+
+        if (cancelled) return;
+
+        // Filter out current product and duplicates
+        const unique = [];
+        const seen = new Set();
+        seen.add(product.handle); // Exclude current
+
+        recs.forEach(item => {
+          if (item?.handle && !seen.has(item.handle)) {
+            unique.push(item);
+            seen.add(item.handle);
+          }
+        });
+
+        // Limit to 4 for desktop, 4 for mobile (or 8?)
+        // Let's show 4-8.
+        setRecommendedProducts(unique.slice(0, 8).map(toProductCard));
+
+      } catch (e) {
+        console.warn('Failed to load recommended products', e);
+      }
+    }
+    loadRecommended();
+    return () => { cancelled = true; };
+  }, [product]);
+
+  // Fetch "You Might Also Like" products (Same Collection or Category)
+  useEffect(() => {
+    let cancelled = false;
+    async function loadRecommended() {
+      if (!product) return;
+
+      try {
+        let recs = [];
+        // 1. Try Primary Collection
+        const primaryCollection = product.collections?.[0]?.handle;
+        if (primaryCollection) {
+          const items = await fetchProductsFromCollection(primaryCollection, 10);
+          recs = items;
+        }
+
+        // 2. Fallback to Search by Type if no collection or few results
+        if ((!recs || recs.length < 4) && product.productType) {
+          const typeRecs = await searchProducts(product.productType, 10);
+          recs = [...recs, ...typeRecs];
+        }
+
+        // 3. Fallback to generic "Latest" if still nothing (using fetchAllProducts)
+        if (!recs || recs.length < 4) {
+          const all = await fetchAllProducts(12);
+          recs = [...recs, ...all];
+        }
+
+        if (cancelled) return;
+
+        // Filter out current product and duplicates
+        const unique = [];
+        const seen = new Set();
+        seen.add(product.handle); // Exclude current
+
+        recs.forEach(item => {
+          if (item?.handle && !seen.has(item.handle)) {
+            unique.push(item);
+            seen.add(item.handle);
+          }
+        });
+
+        // Limit to 4 for desktop, 4 for mobile (or 8?)
+        // Let's show 4-8.
+        setRecommendedProducts(unique.slice(0, 8).map(toProductCard));
+
+      } catch (e) {
+        console.warn('Failed to load recommended products', e);
+      }
+    }
+    loadRecommended();
+    return () => { cancelled = true; };
+  }, [product]);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -796,6 +904,11 @@ const ProductDetails = () => {
               />
             )}
 
+
+
+
+
+
             <SizeSelectionModal
               isOpen={showSizeModal}
               onClose={() => setShowSizeModal(false)}
@@ -855,7 +968,18 @@ const ProductDetails = () => {
         </div>
       </div>
 
-      {/* UPDATED: Sticky Footer with Spacing */}
+      {/* You Might Also Like Section - Moved Outside */}
+      {recommendedProducts.length > 0 && (
+        <div className="mb-8">
+          <ProductGrid
+            title="You Might Also Like"
+            products={recommendedProducts}
+            ctaHref={`/collections/${product?.collections?.[0]?.handle || 'all'}`}
+            ctaLabel="View Collection"
+          />
+        </div>
+      )}
+
       <div className="fixed bottom-0 left-0 right-0 z-40 lg:hidden flex flex-col shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] bg-white">
         {/* Button Wrapper: Added px-4 (side spacing) and vertical padding */}
         <div className="px-4 pt-4 pb-2">
