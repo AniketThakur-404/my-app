@@ -1,9 +1,11 @@
 // src/components/SearchOverlay.jsx
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useCatalog } from '../contexts/catalog-context';
 import { formatMoney, getProductImageUrl, searchProducts } from '../lib/shopify';
 
 const SearchOverlay = ({ open, onClose }) => {
+  const navigate = useNavigate();
   const inputRef = useRef(null);
   const [query, setQuery] = useState('');
   const { products: catalogProducts } = useCatalog();
@@ -160,7 +162,8 @@ const SearchOverlay = ({ open, onClose }) => {
     const trimmed = value.trim();
     if (!trimmed) return;
     setQuery(trimmed);
-    inputRef.current?.focus();
+    onClose();
+    navigate(`/search?q=${encodeURIComponent(trimmed)}`);
   };
 
   const handleSubmit = (event) => {

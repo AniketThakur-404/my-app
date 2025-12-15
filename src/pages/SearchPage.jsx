@@ -42,7 +42,7 @@ const SearchPage = () => {
               node?.priceRange?.minVariantPrice?.currencyCode,
             ),
             img: node?.featuredImage?.url ?? '',
-            href: `/product/${node?.handle}`,
+            handle: node?.handle,
             badge: node?.tags?.includes('new') ? 'New' : undefined,
           })) ?? [];
         setProductResults(cards.filter((card) => card.href));
@@ -65,30 +65,70 @@ const SearchPage = () => {
     };
   }, [trimmedQuery]);
 
-  const suggestions = useMemo(() => {
-    const keywords = [];
-    (catalogProducts ?? []).forEach((product) => {
-      if (product?.title) keywords.push(product.title);
-      if (product?.handle) keywords.push(product.handle.replace(/-/g, ' '));
-      if (Array.isArray(product?.tags)) {
-        product.tags.forEach((tag) => {
-          if (tag) keywords.push(tag.replace(/[-_]/g, ' '));
-        });
-      }
-    });
-    const uniqueKeywords = Array.from(
-      new Set(keywords.map((value) => value.trim()).filter(Boolean)),
-    );
+  const keywordSuggestions = useMemo(() => {
+    if (!catalogProducts?.length) return [];
 
+    const keywordEntries = new Map();
+
+    const register = (value) => {
+      const cleaned = String(value ?? '').trim();
+      if (!cleaned) return;
+      const normalized = cleaned.toLowerCase();
+      const existing = keywordEntries.get(normalized);
+      if (existing) {
+        existing.count += 1;
+        if (cleaned.length > existing.label.length) {
+          existing.label = cleaned;
+        }
+      } else {
+        keywordEntries.set(normalized, { label: cleaned, count: 1 });
+      }
+    };
+
+    const registerWithTokens = (value) => {
+      register(value);
+      const tokens = String(value ?? '')
+        .split(/[\s\\/,&|-]+/)
+        .map((token) => token.trim())
+        .filter((token) => token.length >= 3);
+      tokens.forEach(register);
+    };
+
+    catalogProducts.forEach((product) => {
+      registerWithTokens(product?.title);
+      registerWithTokens(product?.vendor);
+      registerWithTokens(product?.productType);
+      if (product?.handle) {
+        registerWithTokens(product.handle.replace(/[-_]/g, ' '));
+      }
+      (product?.tags ?? []).forEach((tag) => registerWithTokens(tag));
+      (product?.collections ?? []).forEach((collection) =>
+        registerWithTokens(collection?.title),
+      );
+    });
+
+    const sorted = Array.from(keywordEntries.values()).sort((a, b) => {
+      if (b.count !== a.count) return b.count - a.count;
+      return a.label.localeCompare(b.label);
+    });
+
+    return sorted.map((entry) => entry.label);
+  }, [catalogProducts]);
+
+  const suggestions = useMemo(() => {
     if (!trimmedQuery) {
-      return uniqueKeywords.slice(0, 6);
+      return keywordSuggestions.slice(0, 6);
     }
+
     const normalized = trimmedQuery.toLowerCase();
-    const matches = uniqueKeywords.filter((value) =>
+    const matches = keywordSuggestions.filter((value) =>
       value.toLowerCase().includes(normalized),
     );
-    return Array.from(new Set([...matches, ...uniqueKeywords])).slice(0, 6);
-  }, [catalogProducts, trimmedQuery]);
+    const remaining = keywordSuggestions.filter(
+      (value) => !matches.includes(value),
+    );
+    return [...matches, ...remaining].slice(0, 6);
+  }, [keywordSuggestions, trimmedQuery]);
 
   const handleSubmit = (event) => {
     event.preventDefault();
@@ -119,7 +159,7 @@ const SearchPage = () => {
 
         {trimmedQuery && (
           <p className="mt-3 text-xs uppercase tracking-[0.3em] text-neutral-500">
-            Showing results for “{trimmedQuery}”
+            Showing results for "{trimmedQuery}"
           </p>
         )}
       </header>
@@ -147,7 +187,7 @@ const SearchPage = () => {
           {trimmedQuery ? (
             loading ? (
               <p className="text-sm uppercase tracking-[0.3em] text-neutral-500">
-                Searching for “{trimmedQuery}”…
+                Searching for "{trimmedQuery}"...
               </p>
             ) : error ? (
               <p className="text-sm uppercase tracking-[0.3em] text-red-600">{error}</p>
@@ -159,7 +199,7 @@ const SearchPage = () => {
               </div>
             ) : (
               <p className="text-sm uppercase tracking-[0.3em] text-neutral-500">
-                No products matched “{trimmedQuery}”.
+                No products matched "{trimmedQuery}".
               </p>
             )
           ) : (

@@ -138,6 +138,10 @@ export default function HomePage() {
 
 
       <div className="site-shell section-gap">
+        <VideoBanner />
+      </div>
+
+      <div className="site-shell section-gap">
         <ProductGrid
           title="More From ARADHYA"
           products={moreProducts}
