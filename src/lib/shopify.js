@@ -1006,6 +1006,61 @@ export async function customerQuery(accessToken) {
       firstName
       lastName
       email
+      phone
+      displayName
+      defaultAddress {
+        id
+        name
+        phone
+        address1
+        address2
+        city
+        province
+        country
+        zip
+      }
+      orders(first: 20, reverse: true) {
+        nodes {
+          id
+          name
+          orderNumber
+          processedAt
+          financialStatus
+          fulfillmentStatus
+          statusUrl
+          totalPriceV2 { amount currencyCode }
+          subtotalPriceV2 { amount currencyCode }
+          totalTaxV2 { amount currencyCode }
+          totalRefundedV2 { amount currencyCode }
+          shippingAddress {
+            name
+            phone
+            address1
+            address2
+            city
+            province
+            country
+            zip
+          }
+          lineItems(first: 10) {
+            nodes {
+              title
+              quantity
+              variant {
+                title
+                image { url altText }
+              }
+            }
+          }
+          successfulFulfillments(first: 3) {
+            trackingCompany
+            trackingInfo(first: 3) {
+              number
+              url
+            }
+          }
+        }
+      }
     }
   }`;
   return graphql(q, { token: accessToken });
