@@ -4,6 +4,8 @@ import { AnimatePresence, motion as Motion } from 'framer-motion';
 import { BadgePercent, ChevronDown, Heart, Share2, Trash2, X } from 'lucide-react';
 import { useCart } from '../contexts/cart-context';
 import { useCatalog } from '../contexts/catalog-context';
+import { useWishlist } from '../contexts/wishlist-context';
+import { useNotifications } from './NotificationProvider';
 import {
   fetchProductByHandle,
   findVariantForSize,
@@ -15,6 +17,8 @@ const CartDrawer = ({ open, onClose }) => {
   const navigate = useNavigate();
   const { items, updateQuantity, removeItem } = useCart();
   const { getProduct } = useCatalog();
+  const { toggleItem } = useWishlist();
+  const { notify } = useNotifications();
   const [externalProducts, setExternalProducts] = useState({});
   const [selectedIds, setSelectedIds] = useState({});
 
@@ -152,7 +156,7 @@ const CartDrawer = ({ open, onClose }) => {
 
 
   const handleSelectAll = () => {
-    setSelectedIds((prev) => {
+    setSelectedIds(() => {
       const next = {};
       readyItems.forEach((item) => {
         next[item.id] = allSelected ? false : true;
@@ -164,6 +168,47 @@ const CartDrawer = ({ open, onClose }) => {
   const handlePlaceOrder = () => {
     onClose();
     navigate('/cart');
+  };
+
+  const handleShareBag = async () => {
+    const fallbackUrl = typeof window !== 'undefined' ? window.location.href : '';
+    const list = selectedReadyItems.map((item) => item.product?.title).filter(Boolean);
+    const title = 'My ARADHYA bag';
+    const text =
+      list.length > 0
+        ? `Checkout these picks: ${list.slice(0, 5).join(', ')}${list.length > 5 ? '...' : ''}`
+        : 'Have a look at my cart on ARADHYA.';
+    try {
+      if (navigator.share) {
+        await navigator.share({ title, text, url: fallbackUrl });
+        notify({ title: 'Share', message: 'Bag shared successfully.' });
+        return;
+      }
+      await navigator.clipboard?.writeText(fallbackUrl);
+      notify({ title: 'Link copied', message: 'Cart link copied to clipboard.' });
+    } catch (err) {
+      console.warn('Share failed', err);
+      notify({ title: 'Share failed', message: 'Unable to share right now.' });
+    }
+  };
+
+  const handleSaveForLater = () => {
+    const targets = selectedReadyItems.length ? selectedReadyItems : readyItems;
+    if (!targets.length) return;
+    targets.forEach((item) => {
+      toggleItem(item.handle, {
+        title: item.product.title,
+        handle: item.handle,
+        vendor: item.product.vendor,
+        price: formatMoney(item.unitPrice.amount, item.unitPrice.currency),
+        img: getProductImageUrl(item.product),
+      });
+      removeItem(item.handle, item.size ?? null);
+    });
+    notify({
+      title: 'Wishlist',
+      message: `${targets.length} item${targets.length > 1 ? 's' : ''} moved to wishlist.`,
+    });
   };
 
   const empty = items.length === 0;
@@ -225,7 +270,7 @@ const CartDrawer = ({ open, onClose }) => {
                 </label>
 
                 <div className="flex items-center gap-3 text-gray-500">
-                  <button type="button" className="p-1" aria-label="Share bag">
+                  <button type="button" className="p-1" aria-label="Share bag" onClick={handleShareBag}>
                     <Share2 className="h-5 w-5" />
                   </button>
                   <button type="button" className="p-1" aria-label="Apply offer">
@@ -241,7 +286,7 @@ const CartDrawer = ({ open, onClose }) => {
                   >
                     <Trash2 className="h-5 w-5" />
                   </button>
-                  <button type="button" className="p-1" aria-label="Save for later">
+                  <button type="button" className="p-1" aria-label="Save for later" onClick={handleSaveForLater}>
                     <Heart className="h-5 w-5" />
                   </button>
                 </div>

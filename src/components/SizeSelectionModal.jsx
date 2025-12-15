@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
-import { extractOptionValues, findVariantForSize } from '../lib/shopify';
+import { extractOptionValues } from '../lib/shopify';
 
-const SizeSelectionModal = ({ isOpen, onClose, items, mainProduct, onConfirm }) => {
+const SizeSelectionModal = ({ isOpen, onClose, items, onConfirm }) => {
     const [selections, setSelections] = useState({});
 
     useEffect(() => {

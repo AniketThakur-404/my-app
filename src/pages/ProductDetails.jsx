@@ -18,6 +18,8 @@ import ProductGrid from '../components/ProductGrid';
 import SizeSelectionModal from '../components/SizeSelectionModal';
 import { useCatalog } from '../contexts/catalog-context';
 import { useCart } from '../contexts/cart-context';
+import { useWishlist } from '../contexts/wishlist-context';
+import { useNotifications } from '../components/NotificationProvider';
 import {
   extractOptionValues,
   fetchProductByHandle,
@@ -54,6 +56,8 @@ const ProductDetails = () => {
 
   const { getProduct } = useCatalog();
   const { addItem } = useCart();
+  const { isWishlisted, toggleItem } = useWishlist();
+  const { notify } = useNotifications();
 
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -71,6 +75,62 @@ const ProductDetails = () => {
   const [recommendedProducts, setRecommendedProducts] = useState([]);
   const [selectedFbtItems, setSelectedFbtItems] = useState(new Set());
   const [showSizeModal, setShowSizeModal] = useState(false);
+  const productHandle = product?.handle || '';
+
+  const inWishlist = useMemo(
+    () => (productHandle ? isWishlisted(productHandle) : false),
+    [isWishlisted, productHandle],
+  );
+
+  const handleToggleWishlist = () => {
+    if (!productHandle) return;
+    const nextStateIsAdded = !inWishlist;
+    toggleItem(productHandle, toProductCard(product));
+    notify({
+      title: 'Wishlist',
+      message: nextStateIsAdded ? 'Saved to your wishlist.' : 'Removed from wishlist.',
+    });
+  };
+
+  const handleShare = async () => {
+    if (!productHandle) return;
+    const url =
+      typeof window !== 'undefined'
+        ? `${window.location.origin}/product/${productHandle}`
+        : `/product/${productHandle}`;
+    const shareData = {
+      title: product?.title || 'Check this out',
+      text: product?.vendor ? `${product.vendor} - ${product.title}` : product?.title,
+      url,
+    };
+
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+        notify({ title: 'Share', message: 'Shared successfully.' });
+        return;
+      }
+
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+      } else {
+        const textArea = document.createElement('textarea');
+        textArea.value = url;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+      }
+
+      notify({ title: 'Link copied', message: 'Product link copied to clipboard.' });
+    } catch (err) {
+      console.error('Share failed', err);
+      notify({
+        title: 'Share failed',
+        message: 'Unable to share right now. Try copying the link manually.',
+      });
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -374,16 +434,6 @@ const ProductDetails = () => {
       // User said: "if single tshirt then show pants and shirt and shoes"
       // So targeting: Bottoms, Shoes, and other Tops (maybe layering).
 
-      let targetKeywords = [];
-      if (currentCat === 'top') {
-        targetKeywords = ['pant', 'trouser', 'jeans', 'shoe', 'sneaker'];
-      } else if (currentCat === 'bottom') {
-        targetKeywords = ['shirt', 't-shirt', 'polo', 'tee', 'shoe', 'sneaker'];
-      } else {
-        // Fallback for shoes or others: show tops and bottoms
-        targetKeywords = ['shirt', 't-shirt', 'pant', 'trouser'];
-      }
-
       // 1. Check if CURRENT product is in allowed category
       if (!isAllowedCategory(product)) {
         setRelatedProducts([]);
@@ -640,10 +690,22 @@ const ProductDetails = () => {
                 </span>
               )}
             </button>
-            <button className="w-10 h-10 flex items-center justify-center">
-              <Heart className="w-6 h-6 text-black" />
+            <button
+              className="w-10 h-10 flex items-center justify-center"
+              onClick={handleToggleWishlist}
+              aria-label={inWishlist ? 'Remove from wishlist' : 'Add to wishlist'}
+            >
+              <Heart
+                className="w-6 h-6"
+                fill={inWishlist ? 'currentColor' : 'none'}
+                color={inWishlist ? '#ff3f6c' : '#111827'}
+              />
             </button>
-            <button className="w-10 h-10 flex items-center justify-center">
+            <button
+              className="w-10 h-10 flex items-center justify-center"
+              onClick={handleShare}
+              aria-label="Share this product"
+            >
               <Share2 className="w-6 h-6 text-black" />
             </button>
           </div>
@@ -752,10 +814,22 @@ const ProductDetails = () => {
               )}
 
               <div className="absolute top-4 right-4 flex flex-col gap-3">
-                <button className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm hover:scale-105 transition-transform">
-                  <Heart className="w-5 h-5 text-gray-700" />
+                <button
+                  className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm hover:scale-105 transition-transform"
+                  onClick={handleToggleWishlist}
+                  aria-label={inWishlist ? 'Remove from wishlist' : 'Add to wishlist'}
+                >
+                  <Heart
+                    className="w-5 h-5"
+                    fill={inWishlist ? 'currentColor' : 'none'}
+                    color={inWishlist ? '#ff3f6c' : '#374151'}
+                  />
                 </button>
-                <button className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm hover:scale-105 transition-transform">
+                <button
+                  className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm hover:scale-105 transition-transform"
+                  onClick={handleShare}
+                  aria-label="Share this product"
+                >
                   <Share2 className="w-5 h-5 text-gray-700" />
                 </button>
               </div>

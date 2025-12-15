@@ -19,6 +19,7 @@ import BlogPage from './pages/BlogPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import ProfilePage from './pages/ProfilePage';
+import WishlistPage from './pages/WishlistPage';
 
 export default function App() {
   return (
@@ -50,6 +51,7 @@ export default function App() {
             <Route path="login" element={<LoginPage />} />
             <Route path="register" element={<RegisterPage />} />
             <Route path="profile" element={<ProfilePage />} />
+            <Route path="wishlist" element={<WishlistPage />} />
             <Route path="product" element={<Navigate to="/" replace />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>

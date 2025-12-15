@@ -1,15 +1,14 @@
 import MobilePageHeader from '../components/MobilePageHeader';
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { useSearchParams, useLocation } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { ChevronDown } from 'lucide-react';
 import ProductCard from '../components/ProductCard';
 import { useCatalog } from '../contexts/catalog-context';
 import { toProductCard } from '../lib/shopify';
 
 const AllProductsPage = ({ initialCategory = 'all' }) => {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const location = useLocation();
+  const [searchParams] = useSearchParams();
   const activeCategory = searchParams.get('category') ?? initialCategory;
 
   const { products: catalogProducts, ensureCollectionProducts } = useCatalog();

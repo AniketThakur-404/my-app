@@ -1,8 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
 import { Check } from 'lucide-react';
 import { formatMoney } from '../lib/shopify';
-import { useCart } from '../contexts/cart-context';
 
 /**
  * FrequentlyBoughtTogether - Professional section for related products

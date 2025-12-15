@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion as Motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 const slides = [
@@ -65,7 +65,7 @@ export default function HeroCarousel() {
                 {/* Active Slide (Center) */}
                 <div className="relative w-full md:w-[70%] h-full z-10 rounded-3xl overflow-hidden shadow-2xl">
                     <AnimatePresence mode='wait'>
-                        <motion.div
+                        <Motion.div
                             key={currentIndex}
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
@@ -86,7 +86,7 @@ export default function HeroCarousel() {
                                     {slides[currentIndex].subtitle}
                                 </p>
                             </div>
-                        </motion.div>
+                        </Motion.div>
                     </AnimatePresence>
                 </div>
 

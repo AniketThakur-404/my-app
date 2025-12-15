@@ -10,8 +10,7 @@ const SimilarProductCard = ({ item }) => {
         title,
         price,
         img,
-        vendor,
-        badge
+        vendor
     } = item;
 
     return (

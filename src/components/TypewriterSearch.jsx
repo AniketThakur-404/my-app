@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Search } from 'lucide-react';
 
 const TypewriterSearch = ({ onSearchClick }) => {
-    const words = ["Party Wear", "Pooja Wear", "Office Wear", "College Wear"];
+    const words = useMemo(() => ["Party Wear", "Pooja Wear", "Office Wear", "College Wear"], []);
     const [currentWordIndex, setCurrentWordIndex] = useState(0);
     const [currentText, setCurrentText] = useState("");
     const [isDeleting, setIsDeleting] = useState(false);

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
 import { Facebook, Instagram, MessageCircle, Truck, CreditCard, RotateCcw, Headphones, ArrowUp } from 'lucide-react';
 

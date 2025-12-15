@@ -1,10 +1,11 @@
 // src/components/Layout.jsx
 import React, { useMemo, useState } from 'react';
-import { Outlet, useLocation } from 'react-router-dom';
+import { Outlet } from 'react-router-dom';
 import Navbar from './Navbar';
 import Footer from './Footer';
 import CatalogProvider from '../contexts/catalog-context';
 import CartProvider from '../contexts/cart-context';
+import WishlistProvider from '../contexts/wishlist-context';
 import NotificationProvider from './NotificationProvider';
 import SearchOverlay from './SearchOverlay';
 import CartDrawer from './CartDrawer';
@@ -62,33 +63,32 @@ const Layout = () => {
     [],
   );
 
-  const location = useLocation();
-  const isMobileHome = location.pathname === '/';
-
   return (
     <CatalogProvider>
-      <CartProvider>
-        <NotificationProvider>
-          <div className="bg-white text-neutral-900 min-h-screen flex flex-col">
-            <div className="sticky top-0 z-50 hidden lg:block">
-              <Navbar
-                onSearchClick={() => setSearchOpen(true)}
-                onCartClick={() => setCartOpen(true)}
-              />
+      <WishlistProvider>
+        <CartProvider>
+          <NotificationProvider>
+            <div className="bg-white text-neutral-900 min-h-screen flex flex-col">
+              <div className="sticky top-0 z-50 hidden lg:block">
+                <Navbar
+                  onSearchClick={() => setSearchOpen(true)}
+                  onCartClick={() => setCartOpen(true)}
+                />
+              </div>
+
+              <main className="flex-grow">
+                <Outlet context={outletContext} />
+              </main>
+
+              <Footer />
+
+              <SearchOverlay open={searchOpen} onClose={() => setSearchOpen(false)} />
+              <CartDrawer open={cartOpen} onClose={() => setCartOpen(false)} />
+              <BottomNav onSearchClick={() => setSearchOpen(true)} onCartClick={() => setCartOpen(true)} />
             </div>
-
-            <main className="flex-grow">
-              <Outlet context={outletContext} />
-            </main>
-
-            <Footer />
-
-            <SearchOverlay open={searchOpen} onClose={() => setSearchOpen(false)} />
-            <CartDrawer open={cartOpen} onClose={() => setCartOpen(false)} />
-            <BottomNav onSearchClick={() => setSearchOpen(true)} onCartClick={() => setCartOpen(true)} />
-          </div>
-        </NotificationProvider>
-      </CartProvider>
+          </NotificationProvider>
+        </CartProvider>
+      </WishlistProvider>
     </CatalogProvider>
   );
 };

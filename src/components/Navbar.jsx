@@ -3,11 +3,13 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Search, ShoppingBag, User, Heart, Menu, X } from 'lucide-react';
 import { useCart } from '../contexts/cart-context';
 import { useAuth } from '../contexts/auth-context';
+import { useWishlist } from '../contexts/wishlist-context';
 
 const Navbar = ({ onSearchClick, onCartClick }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { totalItems } = useCart();
   const { isAuthenticated } = useAuth();
+  const { count: wishlistCount } = useWishlist();
   const navigate = useNavigate();
 
   const navLinks = [
@@ -81,10 +83,22 @@ const Navbar = ({ onSearchClick, onCartClick }) => {
               <User className="w-5 h-5 text-gray-700 group-hover:text-black" />
               <span className="text-xs font-bold text-gray-700 group-hover:text-black hidden lg:block">Profile</span>
             </div>
-            <div className="flex flex-col items-center gap-1 cursor-pointer group">
-              <Heart className="w-5 h-5 text-gray-700 group-hover:text-black" />
+            <Link
+              to="/wishlist"
+              className="flex flex-col items-center gap-1 cursor-pointer group relative"
+            >
+              <Heart
+                className="w-5 h-5 group-hover:text-black"
+                fill={wishlistCount > 0 ? 'currentColor' : 'none'}
+                color={wishlistCount > 0 ? '#ff3f6c' : '#374151'}
+              />
+              {wishlistCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-[#ff3f6c] text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
+                  {wishlistCount}
+                </span>
+              )}
               <span className="text-xs font-bold text-gray-700 group-hover:text-black hidden lg:block">Wishlist</span>
-            </div>
+            </Link>
             <div
               className="flex flex-col items-center gap-1 cursor-pointer group relative"
               onClick={onCartClick}

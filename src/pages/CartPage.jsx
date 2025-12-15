@@ -10,11 +10,15 @@ import {
   getProductImageUrl,
 } from '../lib/shopify';
 import { useCatalog } from '../contexts/catalog-context';
+import { useWishlist } from '../contexts/wishlist-context';
+import { useNotifications } from '../components/NotificationProvider';
 
 const CartPage = () => {
   const navigate = useNavigate();
   const { items, updateQuantity, removeItem } = useCart();
   const { getProduct } = useCatalog();
+  const { toggleItem } = useWishlist();
+  const { notify } = useNotifications();
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [checkoutError, setCheckoutError] = useState(null);
   const [externalProducts, setExternalProducts] = useState({});
@@ -152,6 +156,47 @@ const CartPage = () => {
 
   const resolveVariantId = (product, size) =>
     findVariantForSize(product, size)?.id ?? null;
+
+  const handleShareBag = async () => {
+    const fallbackUrl = typeof window !== 'undefined' ? window.location.href : '';
+    const list = selectedReadyItems.map((item) => item.product?.title).filter(Boolean);
+    const title = 'My ARADHYA bag';
+    const text =
+      list.length > 0
+        ? `Checkout these picks: ${list.slice(0, 5).join(', ')}${list.length > 5 ? '...' : ''}`
+        : 'Have a look at my cart on ARADHYA.';
+    try {
+      if (navigator.share) {
+        await navigator.share({ title, text, url: fallbackUrl });
+        notify({ title: 'Share', message: 'Bag shared successfully.' });
+        return;
+      }
+      await navigator.clipboard?.writeText(fallbackUrl);
+      notify({ title: 'Link copied', message: 'Cart link copied to clipboard.' });
+    } catch (err) {
+      console.warn('Share failed', err);
+      notify({ title: 'Share failed', message: 'Unable to share right now.' });
+    }
+  };
+
+  const handleSaveForLater = () => {
+    const targets = selectedReadyItems.length ? selectedReadyItems : readyItems;
+    if (!targets.length) return;
+    targets.forEach((item) => {
+      toggleItem(item.handle, {
+        title: item.product.title,
+        handle: item.handle,
+        vendor: item.product.vendor,
+        price: formatMoney(item.unitPrice.amount, item.unitPrice.currency),
+        img: getProductImageUrl(item.product),
+      });
+      removeItem(item.handle, item.size ?? null);
+    });
+    notify({
+      title: 'Wishlist',
+      message: `${targets.length} item${targets.length > 1 ? 's' : ''} moved to wishlist.`,
+    });
+  };
 
   const handleCheckout = async () => {
     if (!selectedCartItems.length || isCheckingOut) {
@@ -315,7 +360,7 @@ const CartPage = () => {
             type="checkbox"
             checked={allSelected}
             onChange={() => {
-              setSelectedIds((prev) => {
+              setSelectedIds(() => {
                 const next = {};
                 readyItems.forEach((item) => {
                   next[item.id] = allSelected ? false : true;
@@ -331,7 +376,7 @@ const CartPage = () => {
         </label>
 
         <div className="flex items-center gap-2 sm:gap-4 text-gray-500">
-          <button type="button" className="p-1" aria-label="Share bag">
+          <button type="button" className="p-1" aria-label="Share bag" onClick={handleShareBag}>
             <Share2 className="h-5 w-5" />
           </button>
           <button type="button" className="p-1" aria-label="Apply offer">
@@ -345,7 +390,7 @@ const CartPage = () => {
           >
             <Trash2 className="h-5 w-5" />
           </button>
-          <button type="button" className="p-1" aria-label="Save for later">
+          <button type="button" className="p-1" aria-label="Save for later" onClick={handleSaveForLater}>
             <Heart className="h-5 w-5" />
           </button>
         </div>

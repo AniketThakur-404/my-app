@@ -1,12 +1,11 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Heart } from 'lucide-react';
+import { useWishlist } from '../contexts/wishlist-context';
+import { useNotifications } from './NotificationProvider';
 
 const ProductCard = ({ item }) => {
-  if (!item) return null;
-
   const {
-    id,
     handle,
     title,
     featuredImage,
@@ -15,19 +14,43 @@ const ProductCard = ({ item }) => {
     vendor,
     img, // From toProductCard
     badge, // From toProductCard
-  } = item;
+  } = item || {};
+
+  const { toggleItem, isWishlisted } = useWishlist();
+  const { notify } = useNotifications();
+
+  const inWishlist = useMemo(() => isWishlisted(handle), [isWishlisted, handle]);
+
+  const handleWishlistClick = (e) => {
+    e.preventDefault();
+    if (!handle) return;
+    const nextStateIsAdded = !inWishlist;
+    toggleItem(handle, item);
+    notify({
+      title: 'Wishlist',
+      message: nextStateIsAdded ? 'Saved to your wishlist.' : 'Removed from wishlist.',
+    });
+  };
 
   // Handle image source: prioritize 'img' (flat string) then 'featuredImage.url' (nested object)
   const imageUrl = img || featuredImage?.url;
-  const imageAlt = featuredImage?.altText || title;
+  const imageAlt = featuredImage?.altText || title || 'Product image';
 
   // Handle price display: 'price' can be a string (formatted) or object (amount/currency)
-  const displayPrice = typeof price === 'string' ? price : `₹${price?.amount || 0}`;
+  const displayPrice =
+    typeof price === 'string'
+      ? price
+      : price?.amount != null
+        ? `ƒ,1${price.amount}`
+        : '';
 
   // Handle compare price
-  const displayComparePrice = typeof compareAtPrice === 'string'
-    ? compareAtPrice
-    : (compareAtPrice?.amount ? `₹${compareAtPrice.amount}` : null);
+  const displayComparePrice =
+    typeof compareAtPrice === 'string'
+      ? compareAtPrice
+      : compareAtPrice?.amount
+        ? `ƒ,1${compareAtPrice.amount}`
+        : null;
 
   // Calculate discount if numeric values are available
   let discount = 0;
@@ -58,18 +81,20 @@ const ProductCard = ({ item }) => {
           {/* Wishlist Button (Visible on Hover) */}
           <button
             className="absolute bottom-4 right-4 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-pink-50"
-            onClick={(e) => {
-              e.preventDefault();
-              // Add to wishlist logic
-            }}
+            onClick={handleWishlistClick}
+            aria-label={inWishlist ? 'Remove from wishlist' : 'Add to wishlist'}
           >
-            <Heart className="w-4 h-4 text-gray-700" />
+            <Heart
+              className="w-4 h-4"
+              fill={inWishlist ? 'currentColor' : 'none'}
+              color={inWishlist ? '#ff3f6c' : '#374151'}
+            />
           </button>
 
           {/* Rating Badge (Static for now) */}
           <div className="absolute bottom-2 left-2 bg-white/90 px-1.5 py-0.5 rounded flex items-center gap-1 shadow-sm opacity-80">
             <span className="text-[10px] font-bold">4.2</span>
-            <span className="text-[10px] text-teal-500">★</span>
+            <span className="text-[10px] text-teal-500">ƒ~.</span>
             <span className="text-[10px] text-gray-400 border-l border-gray-300 pl-1 ml-1">1.2k</span>
           </div>
 
@@ -91,7 +116,7 @@ const ProductCard = ({ item }) => {
       {/* Details */}
       <div className="p-3">
         <h3 className="text-sm font-bold text-[#282c3f] truncate mb-0.5">{vendor || 'Brand'}</h3>
-        <p className="text-xs text-[#535766] truncate mb-2 font-normal">{title}</p>
+        <p className="text-xs text-[#535766] truncate mb-2 font-normal">{title || 'Product'}</p>
 
         <div className="flex items-center gap-2 text-sm">
           <span className="font-bold text-[#282c3f]">{displayPrice}</span>

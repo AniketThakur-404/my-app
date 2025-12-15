@@ -47,7 +47,7 @@ export default function Payment() {
                 <h3 className="px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wide">RECOMMENDED PAYMENT OPTIONS</h3>
 
                 <div className="bg-white p-4">
-                    <div className="flex items-start gap-3">
+                    <div className="flex items-start gap-3" onClick={() => setSelectedPayment('cod')}>
                         <div className="mt-1">
                             <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${selectedPayment === 'cod' ? 'border-pink-600' : 'border-gray-400'}`}>
                                 {selectedPayment === 'cod' && <div className="w-3 h-3 bg-pink-600 rounded-full" />}
@@ -80,7 +80,11 @@ export default function Payment() {
 
                 <div className="bg-white">
                     {paymentOptions.map((option) => (
-                        <div key={option.id} className="flex items-center justify-between p-4 border-b border-gray-100 last:border-0">
+                        <div
+                            key={option.id}
+                            className={`flex items-center justify-between p-4 border-b border-gray-100 last:border-0 ${selectedPayment === option.id ? 'bg-pink-50' : ''}`}
+                            onClick={() => setSelectedPayment(option.id)}
+                        >
                             <div className="flex items-center gap-4">
                                 {/* Icons would be better with specific SVGs, using generic placeholders for now */}
                                 {option.id === 'upi' && <span className="font-bold text-[10px] border border-gray-300 px-1 rounded">UPI</span>}
