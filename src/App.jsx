@@ -7,7 +7,6 @@ import ScrollToTop from './components/ScrollToTop';
 import HomePage from './pages/HomePage';
 import ProductDetails from './pages/ProductDetails';
 import CartPage from './pages/CartPage';
-import SearchPage from './pages/SearchPage';
 import AllProductsPage from './pages/AllProductsPage';
 import Address from './pages/Address';
 import Payment from './pages/Payment';
@@ -47,7 +46,6 @@ export default function App() {
             <Route path="contact" element={<ContactPage />} />
             <Route path="blog" element={<BlogPage />} />
             <Route path="faq" element={<ContactPage />} />
-            <Route path="search" element={<SearchPage />} />
             <Route path="login" element={<LoginPage />} />
             <Route path="register" element={<RegisterPage />} />
             <Route path="profile" element={<ProfilePage />} />

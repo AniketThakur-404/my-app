@@ -1,29 +1,26 @@
 // src/components/SearchOverlay.jsx
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useCatalog } from '../contexts/catalog-context';
 import { formatMoney, getProductImageUrl, searchProducts } from '../lib/shopify';
 
 const SearchOverlay = ({ open, onClose }) => {
-  const navigate = useNavigate();
   const inputRef = useRef(null);
   const [query, setQuery] = useState('');
   const { products: catalogProducts } = useCatalog();
 
-  const popularProducts = useMemo(
-    () =>
-      (catalogProducts ?? [])
-        .slice(0, 6)
-        .map((product) => ({
-          title: product.title,
-          price: formatMoney(product.price, product.currencyCode),
-          img: getProductImageUrl(product),
-          href: `/product/${product.handle}`,
-          badge: product.tags?.includes('new') ? 'New' : undefined,
-        }))
-        .filter((card) => card.href),
-    [catalogProducts],
-  );
+  const popularProducts = useMemo(() => {
+    return (catalogProducts ?? [])
+      .slice(0, 6)
+      .map((product) => ({
+        title: product.title,
+        price: formatMoney(product.price, product.currencyCode),
+        img: getProductImageUrl(product),
+        href: product.handle ? `/product/${product.handle}` : '',
+        handle: product.handle,
+        badge: product.tags?.includes('new') ? 'New' : undefined,
+      }))
+      .filter((card) => card.href);
+  }, [catalogProducts]);
 
   const [productResults, setProductResults] = useState(popularProducts);
   const [loading, setLoading] = useState(false);
@@ -83,7 +80,8 @@ const SearchOverlay = ({ open, onClose }) => {
               node?.priceRange?.minVariantPrice?.currencyCode,
             ),
             img: node?.featuredImage?.url ?? '',
-            href: `/product/${node?.handle}`,
+            href: node?.handle ? `/product/${node.handle}` : '',
+            handle: node?.handle,
             badge: node?.tags?.includes('new') ? 'New' : undefined,
           })) ?? [];
         setProductResults(cards.filter((card) => card.href));
@@ -102,32 +100,67 @@ const SearchOverlay = ({ open, onClose }) => {
   }, [open, query, popularProducts]);
 
   const suggestionItems = useMemo(() => {
-    const keywords = [];
-    (catalogProducts ?? []).forEach((product) => {
-      if (product?.title) keywords.push(product.title);
-      if (product?.handle) keywords.push(product.handle.replace(/-/g, ' '));
-      if (Array.isArray(product?.tags)) {
-        product.tags.forEach((tag) => {
-          if (tag) keywords.push(tag.replace(/[-_]/g, ' '));
-        });
-      }
-    });
-    const uniqueKeywords = Array.from(
-      new Set(keywords.map((value) => value.trim()).filter(Boolean)),
-    );
+    if (!catalogProducts?.length) return [];
 
-    if (!query) return uniqueKeywords.slice(0, 6);
+    const keywordEntries = new Map();
+
+    const register = (value) => {
+      const cleaned = String(value ?? '').trim();
+      if (!cleaned) return;
+      const normalized = cleaned.toLowerCase();
+      const existing = keywordEntries.get(normalized);
+      if (existing) {
+        existing.count += 1;
+        if (cleaned.length > existing.label.length) {
+          existing.label = cleaned;
+        }
+      } else {
+        keywordEntries.set(normalized, { label: cleaned, count: 1 });
+      }
+    };
+
+    const registerWithTokens = (value) => {
+      register(value);
+      const tokens = String(value ?? '')
+        .split(/[\s\\/,&|-]+/)
+        .map((token) => token.trim())
+        .filter((token) => token.length >= 3);
+      tokens.forEach(register);
+    };
+
+    catalogProducts.forEach((product) => {
+      registerWithTokens(product?.title);
+      registerWithTokens(product?.vendor);
+      registerWithTokens(product?.productType);
+      if (product?.handle) {
+        registerWithTokens(product.handle.replace(/[-_]/g, ' '));
+      }
+      (product?.tags ?? []).forEach((tag) => registerWithTokens(tag));
+      (product?.collections ?? []).forEach((collection) =>
+        registerWithTokens(collection?.title),
+      );
+    });
+
+    const keywords = Array.from(keywordEntries.values())
+      .sort((a, b) => {
+        if (b.count !== a.count) return b.count - a.count;
+        return a.label.localeCompare(b.label);
+      })
+      .map((entry) => entry.label);
+
+    if (!query) return keywords.slice(0, 6);
 
     const normalized = query.toLowerCase();
-    const matches = uniqueKeywords.filter((value) => value.toLowerCase().includes(normalized));
-    return Array.from(new Set([...matches, ...uniqueKeywords])).slice(0, 6);
+    const matches = keywords.filter((value) => value.toLowerCase().includes(normalized));
+    const remaining = keywords.filter((value) => !matches.includes(value));
+    return [...matches, ...remaining].slice(0, 6);
   }, [catalogProducts, query]);
 
   const performSearch = (value) => {
     const trimmed = value.trim();
     if (!trimmed) return;
-    onClose();
-    navigate(`/search?q=${encodeURIComponent(trimmed)}`);
+    setQuery(trimmed);
+    inputRef.current?.focus();
   };
 
   const handleSubmit = (event) => {
@@ -141,8 +174,8 @@ const SearchOverlay = ({ open, onClose }) => {
   };
 
   const handleProductClick = (href) => {
-    onClose();
-    navigate(href);
+    if (!href) return;
+    window.location.href = href;
   };
 
   if (!open) return null;
@@ -195,13 +228,11 @@ const SearchOverlay = ({ open, onClose }) => {
             <div className="mt-4 space-y-3">
               {loading ? (
                 <p className="text-sm uppercase tracking-[0.25em] text-neutral-500">
-                  Searching for “{query}”…
+                  Searching for "{query}"...
                 </p>
               ) : productResults.length === 0 ? (
                 <p className="text-sm uppercase tracking-[0.25em] text-neutral-500">
-                  {query
-                    ? `No results for “${query}”.`
-                    : 'No featured products available right now.'}
+                  {query ? `No results for "${query}".` : 'No featured products available right now.'}
                 </p>
               ) : (
                 productResults.map((item) => (
@@ -247,8 +278,8 @@ const SearchOverlay = ({ open, onClose }) => {
             disabled={!query.trim()}
             className="flex w-full items-center justify-between rounded-full border border-neutral-200 px-4 py-3 text-[11px] uppercase tracking-[0.32em] text-neutral-600 transition hover:border-neutral-900 hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <span>Search for “{query || '...'}”</span>
-            <span aria-hidden>↗</span>
+            <span>Search for "{query || '...'}"</span>
+            <span aria-hidden>-></span>
           </button>
         </div>
       </div>
