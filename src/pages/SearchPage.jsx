@@ -42,6 +42,7 @@ const SearchPage = () => {
               node?.priceRange?.minVariantPrice?.currencyCode,
             ),
             img: node?.featuredImage?.url ?? '',
+            href: node?.handle ? `/product/${node.handle}` : '',
             handle: node?.handle,
             badge: node?.tags?.includes('new') ? 'New' : undefined,
           })) ?? [];
