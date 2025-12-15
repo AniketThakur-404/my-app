@@ -27,11 +27,11 @@
 
 @layer components {
   .site-shell {
-    @apply max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8;
+    @apply max-w-full mx-auto px-4 sm:px-6 lg:px-[5px];
   }
 
   .section-gap {
-    @apply py-12 lg:py-16;
+    @apply py-6 lg:py-8;
   }
 }
 

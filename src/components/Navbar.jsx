@@ -81,7 +81,7 @@ const Navbar = ({ onSearchClick, onCartClick }) => {
               onClick={() => navigate(isAuthenticated ? '/profile' : '/login')}
             >
               <User className="w-5 h-5 text-gray-700 group-hover:text-black" />
-              <span className="text-xs font-bold text-gray-700 group-hover:text-black hidden lg:block">Profile</span>
+              <span className="text-xs font-bold text-gray-700 group-hover:text-black hidden xl:block">Profile</span>
             </div>
             <Link
               to="/wishlist"
@@ -97,7 +97,7 @@ const Navbar = ({ onSearchClick, onCartClick }) => {
                   {wishlistCount}
                 </span>
               )}
-              <span className="text-xs font-bold text-gray-700 group-hover:text-black hidden lg:block">Wishlist</span>
+              <span className="text-xs font-bold text-gray-700 group-hover:text-black hidden xl:block">Wishlist</span>
             </Link>
             <div
               className="flex flex-col items-center gap-1 cursor-pointer group relative"
@@ -109,7 +109,7 @@ const Navbar = ({ onSearchClick, onCartClick }) => {
                   {totalItems}
                 </span>
               )}
-              <span className="text-xs font-bold text-gray-700 group-hover:text-black hidden lg:block">Bag</span>
+              <span className="text-xs font-bold text-gray-700 group-hover:text-black hidden xl:block">Bag</span>
             </div>
           </div>
         </div>
