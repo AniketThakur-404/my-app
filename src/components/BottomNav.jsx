@@ -4,10 +4,13 @@ import { Link, useLocation } from 'react-router-dom';
 import { useCart } from '../contexts/cart-context';
 import { useWishlist } from '../contexts/wishlist-context';
 
+import { useAuth } from '../contexts/auth-context';
+
 export default function BottomNav({ onSearchClick, onCartClick }) {
     const location = useLocation();
     const { totalItems } = useCart();
     const { count: wishlistCount } = useWishlist();
+    const { isAuthenticated } = useAuth();
 
     const isActive = (path) => location.pathname === path;
 
@@ -46,8 +49,8 @@ export default function BottomNav({ onSearchClick, onCartClick }) {
                 )}
             </button>
 
-            <Link to="/account" className="flex flex-col items-center justify-center gap-1">
-                <User className={`w-6 h-6 ${isActive('/account') ? 'text-black stroke-[2.5px]' : 'text-gray-500 stroke-[1.5px]'}`} fill={isActive('/account') ? 'currentColor' : 'none'} />
+            <Link to={isAuthenticated ? "/profile" : "/login"} className="flex flex-col items-center justify-center gap-1">
+                <User className={`w-6 h-6 ${isActive('/profile') || isActive('/login') ? 'text-black stroke-[2.5px]' : 'text-gray-500 stroke-[1.5px]'}`} fill={isActive('/profile') ? 'currentColor' : 'none'} />
             </Link>
         </div>
     );

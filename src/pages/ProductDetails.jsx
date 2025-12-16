@@ -20,6 +20,7 @@ import { useCatalog } from '../contexts/catalog-context';
 import { useCart } from '../contexts/cart-context';
 import { useWishlist } from '../contexts/wishlist-context';
 import { useNotifications } from '../components/NotificationProvider';
+import { useAuth } from '../contexts/auth-context';
 import {
   extractOptionValues,
   fetchProductByHandle,
@@ -58,6 +59,7 @@ const ProductDetails = () => {
   const { addItem } = useCart();
   const { isWishlisted, toggleItem } = useWishlist();
   const { notify } = useNotifications();
+  const { isAuthenticated } = useAuth();
 
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -390,6 +392,7 @@ const ProductDetails = () => {
   }, [product]);
 
   // Fetch related products for "Frequently Bought Together"
+  // Fetch related products for "Frequently Bought Together"
   useEffect(() => {
     let cancelled = false;
 
@@ -427,6 +430,15 @@ const ProductDetails = () => {
 
     async function loadRelated() {
       if (!product) return;
+
+      // START FBT RESTRICTION CHANGE
+      // Only load FBT if the current product is a "Combo" or "Full Product"
+      // Assuming "full products" maps to the combo concept or explicit override.
+      if (!isComboProduct(product)) {
+        setRelatedProducts([]);
+        return;
+      }
+      // END FBT RESTRICTION CHANGE
 
       const currentCat = getCategory(product);
 
@@ -970,6 +982,7 @@ const ProductDetails = () => {
             )}
 
             {/* Frequently Bought Together Section (Moved Below Combo) */}
+            {/* Frequently Bought Together Section (Moved Below Combo) */}
             {relatedProducts.length > 0 && (
               <FrequentlyBoughtTogether
                 products={relatedProducts}
@@ -1109,7 +1122,7 @@ const ProductDetails = () => {
           </button>
 
           {/* Profile */}
-          <Link to="/account" className="flex flex-col items-center justify-center w-12 h-full text-gray-900">
+          <Link to={isAuthenticated ? "/profile" : "/login"} className="flex flex-col items-center justify-center w-12 h-full text-gray-900">
             <User className="w-6 h-6 stroke-[1.5]" />
           </Link>
         </div>
