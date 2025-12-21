@@ -12,7 +12,9 @@ import { formatMoney } from '../lib/shopify';
 const FrequentlyBoughtTogether = ({
     products = [],
     selectedHandles = new Set(),
-    onSelectionChange
+    onSelectionChange,
+    title = 'Frequently Bought Together',
+    subtitle
 }) => {
 
     // Toggle selection helper
@@ -31,9 +33,14 @@ const FrequentlyBoughtTogether = ({
     return (
         <div className="bg-white py-6 mb-6 border-t border-gray-100">
             {/* Header */}
-            <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4">
-                Frequently Bought Together
-            </h2>
+            <div className="flex items-center justify-between mb-4">
+                <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wider">
+                    {title}
+                </h2>
+                {subtitle ? (
+                    <span className="text-xs text-gray-500">{subtitle}</span>
+                ) : null}
+            </div>
 
             {/* Product List */}
             <div className="space-y-4">

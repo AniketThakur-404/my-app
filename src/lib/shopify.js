@@ -214,6 +214,11 @@ export function normalizeProductNode(node) {
     optionLookup[option.name.toLowerCase()] = option.values ?? [];
   });
 
+  const comboItems =
+    node.comboItems?.references?.nodes
+      ?.map(normalizeProductNode)
+      ?.filter(Boolean) ?? [];
+
   return {
     id: node.id,
     handle: node.handle,
@@ -233,6 +238,7 @@ export function normalizeProductNode(node) {
     optionValues: optionLookup,
     collections,
     metafields: node.metafields ?? [],
+    comboItems,
     seo: node.seo ?? null,
     availableForSale: Boolean(node.availableForSale),
     totalInventory: node.totalInventory ?? null,
@@ -662,6 +668,41 @@ export async function fetchProductByHandle(handle) {
           selectedOptions { name value }
           price { amount currencyCode }
           compareAtPrice { amount currencyCode }
+        }
+      }
+
+      comboItems: metafield(namespace: "custom", key: "combo_items") {
+        references(first: 10) {
+          nodes {
+            ... on Product {
+              id
+              handle
+              title
+              vendor
+              productType
+              description
+              descriptionHtml
+              tags
+              availableForSale
+              totalInventory
+              featuredImage { url altText }
+              images(first: 10) { nodes { url altText } }
+              priceRange { minVariantPrice { amount currencyCode } }
+              options { name values }
+              variants(first: 20) {
+                nodes {
+                  id
+                  title
+                  availableForSale
+                  sku
+                  quantityAvailable
+                  selectedOptions { name value }
+                  price { amount currencyCode }
+                  compareAtPrice { amount currencyCode }
+                }
+              }
+            }
+          }
         }
       }
 

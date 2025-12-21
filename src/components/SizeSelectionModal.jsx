@@ -2,7 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { extractOptionValues } from '../lib/shopify';
 
-const SizeSelectionModal = ({ isOpen, onClose, items, onConfirm }) => {
+const getSizeOptions = (item) => {
+    const directSizes = extractOptionValues(item, 'Size');
+    if (directSizes.length) return directSizes;
+    const options = Array.isArray(item?.options) ? item.options : [];
+    const sizeOption = options.find((option) =>
+        String(option?.name || '').toLowerCase().includes('size'),
+    );
+    return sizeOption?.values ?? [];
+};
+
+const SizeSelectionModal = ({ isOpen, onClose, items = [], onConfirm }) => {
     const [selections, setSelections] = useState({});
 
     useEffect(() => {
@@ -10,7 +20,7 @@ const SizeSelectionModal = ({ isOpen, onClose, items, onConfirm }) => {
             // Initialize selections for incoming items
             const initial = {};
             items.forEach(item => {
-                const sizes = extractOptionValues(item, 'Size');
+                const sizes = getSizeOptions(item);
                 if (sizes.length > 0) {
                     initial[item.handle] = sizes[0];
                 }
@@ -46,7 +56,7 @@ const SizeSelectionModal = ({ isOpen, onClose, items, onConfirm }) => {
 
                 <div className="p-4 max-h-[60vh] overflow-y-auto space-y-6">
                     {items.map(item => {
-                        const sizes = extractOptionValues(item, 'Size');
+                        const sizes = getSizeOptions(item);
                         const hasSizes = sizes.length > 0;
                         const currentSize = selections[item.handle];
 

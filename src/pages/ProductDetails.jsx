@@ -72,7 +72,7 @@ const ProductDetails = () => {
   const [selectedColor, setSelectedColor] = useState(null);
   const [openAccordion, setOpenAccordion] = useState('details');
   const [pincode, setPincode] = useState('');
-  const [comboSingles, setComboSingles] = useState([]);
+  const [selectedComboItems, setSelectedComboItems] = useState(new Set());
   const [relatedProducts, setRelatedProducts] = useState([]);
   const [recommendedProducts, setRecommendedProducts] = useState([]);
   const [selectedFbtItems, setSelectedFbtItems] = useState(new Set());
@@ -143,12 +143,9 @@ const ProductDetails = () => {
       setError(null);
 
       const local = getProduct(slug);
-      if (local) {
-        if (!cancelled) {
-          setProduct(local);
-          setLoading(false);
-        }
-        return;
+      if (local && !cancelled) {
+        setProduct(local);
+        setLoading(false);
       }
 
       try {
@@ -156,15 +153,16 @@ const ProductDetails = () => {
         if (!cancelled) {
           if (fetched) {
             setProduct(fetched);
+            setLoading(false);
           } else {
-            setError('Product not found');
+            if (!local) setError('Product not found');
           }
         }
       } catch (err) {
         console.error(`Failed to load product "${slug}"`, err);
-        if (!cancelled) setError('Product unavailable right now.');
+        if (!cancelled && !local) setError('Product unavailable right now.');
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled && !local) setLoading(false);
       }
     }
 
@@ -210,6 +208,15 @@ const ProductDetails = () => {
   }, [product]);
   const hasSizes = sizeOptions.length > 0;
   const hasColors = colorOptions.length > 0;
+  const comboItems = useMemo(() => product?.comboItems ?? [], [product]);
+  const hasComboItems = comboItems.length > 0;
+  const selectedComboList = useMemo(
+    () => comboItems.filter((item) => selectedComboItems.has(item.handle)),
+    [comboItems, selectedComboItems],
+  );
+  const comboSelectionLabel = hasComboItems
+    ? `${selectedComboList.length}/${comboItems.length} selected`
+    : '';
 
   const selectedVariant = useMemo(() => {
     if (!product) return null;
@@ -304,6 +311,18 @@ const ProductDetails = () => {
   const handleAddToCart = () => {
     if (!product?.handle) return;
 
+    if (hasComboItems) {
+      if (selectedComboList.length === 0) {
+        notify({
+          title: 'Select items',
+          message: 'Choose at least one item from this combo.',
+        });
+        return;
+      }
+      setShowSizeModal(true);
+      return;
+    }
+
     // If FBT items are selected, we MUST ask for their sizes first
     if (selectedFbtItems.size > 0) {
       setShowSizeModal(true);
@@ -315,14 +334,20 @@ const ProductDetails = () => {
     navigate('/cart');
   };
 
-  const handleConfirmSizes = (fbtItemsWithSizes) => {
-    // 1. Add Main Product
-    addItem(product.handle, { size: selectedSize, quantity: 1 });
+  const handleConfirmSizes = (itemsWithSizes) => {
+    if (hasComboItems) {
+      itemsWithSizes.forEach(({ handle, size, quantity }) => {
+        addItem(handle, { size, quantity: quantity ?? 1 });
+      });
+    } else {
+      // 1. Add Main Product
+      addItem(product.handle, { size: selectedSize, quantity: 1 });
 
-    // 2. Add FBT Items
-    fbtItemsWithSizes.forEach(({ handle, size }) => {
-      addItem(handle, { size, quantity: 1 });
-    });
+      // 2. Add FBT Items
+      itemsWithSizes.forEach(({ handle, size }) => {
+        addItem(handle, { size, quantity: 1 });
+      });
+    }
 
     // 3. Close & Redirect
     setShowSizeModal(false);
@@ -330,66 +355,15 @@ const ProductDetails = () => {
   };
 
   useEffect(() => {
-    let cancelled = false;
-    async function loadSingles() {
-      const looksLikeCombo =
-        String(product?.title || '').toLowerCase().includes('combo') ||
-        product?.tags?.some((tag) => String(tag).toLowerCase().includes('combo'));
-      if (!looksLikeCombo) return;
-      const primaryCollection = product.collections?.[0]?.handle;
-      try {
-        let cards = [];
-        if (primaryCollection) {
-          const items = await fetchProductsFromCollection(primaryCollection, 8);
-          cards = items
-            .filter((item) => item?.handle && item.handle !== product.handle)
-            .map((item) => {
-              const priceInfo = item.priceRange?.minVariantPrice;
-              const enriched = {
-                ...item,
-                price: priceInfo?.amount ?? item.price,
-                currencyCode: priceInfo?.currencyCode ?? item.currencyCode,
-              };
-              return toProductCard(enriched);
-            })
-            .filter(Boolean);
-        }
-
-        if (!cards.length) {
-          const baseTerm = String(product?.title || '')
-            .replace(/\(combo\)/i, '')
-            .trim();
-          const results = await searchProducts(baseTerm || 'combo', 8);
-          cards = results
-            .filter((item) => item?.handle && item.handle !== product.handle)
-            .map((item) => {
-              const priceInfo = item.priceRange?.minVariantPrice;
-              return {
-                title: item.title,
-                handle: item.handle,
-                vendor: item.vendor,
-                price: formatMoney(priceInfo?.amount, priceInfo?.currencyCode),
-                img: item.featuredImage?.url,
-                hoverImg: null,
-                badge: item.tags?.includes('new') ? 'New' : undefined,
-                href: `/product/${item.handle}`,
-              };
-            })
-            .filter(Boolean);
-        }
-
-        if (!cancelled && cards.length) {
-          setComboSingles(cards);
-        }
-      } catch (err) {
-        console.warn('Failed to load singles for combo', err);
-      }
+    if (!hasComboItems) {
+      setSelectedComboItems(new Set());
+      return;
     }
-    loadSingles();
-    return () => {
-      cancelled = true;
-    };
-  }, [product]);
+    const next = new Set(
+      comboItems.map((item) => item?.handle).filter(Boolean),
+    );
+    setSelectedComboItems(next);
+  }, [comboItems, hasComboItems]);
 
   // Fetch related products for "Frequently Bought Together"
   // Fetch related products for "Frequently Bought Together"
@@ -430,6 +404,10 @@ const ProductDetails = () => {
 
     async function loadRelated() {
       if (!product) return;
+      if (hasComboItems) {
+        setRelatedProducts([]);
+        return;
+      }
 
       // START FBT RESTRICTION CHANGE
       // Only load FBT if the current product is a "Combo" or "Full Product"
@@ -550,7 +528,7 @@ const ProductDetails = () => {
     return () => {
       cancelled = true;
     };
-  }, [product]);
+  }, [product, hasComboItems]);
 
   // Fetch "You Might Also Like" products (Same Collection or Category)
   useEffect(() => {
@@ -942,48 +920,18 @@ const ProductDetails = () => {
 
 
 
-            {comboSingles.length > 0 && (
-              <div className="mb-10">
-                <div className="flex justify-between items-center mb-3">
-                  <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider">
-                    Shop singles from this combo
-                  </h3>
-                  <span className="text-xs text-gray-500">
-                    {comboSingles.length} option{comboSingles.length === 1 ? '' : 's'}
-                  </span>
-                </div>
-                <div className="flex gap-3 overflow-x-auto no-scrollbar pb-1">
-                  {comboSingles.map((item) => (
-                    <Link
-                      key={item.handle}
-                      to={`/product/${item.handle}`}
-                      className="min-w-[160px] max-w-[180px] border border-gray-200 rounded-sm bg-white hover:shadow-md transition-shadow"
-                    >
-                      <div className="aspect-[3/4] bg-gray-50">
-                        <img
-                          src={item.img || item.featuredImage?.url}
-                          alt={item.title}
-                          className="w-full h-full object-contain"
-                        />
-                      </div>
-                      <div className="p-2">
-                        <p className="text-xs text-gray-500 uppercase tracking-[0.12em]">
-                          {item.vendor || 'Aradhya'}
-                        </p>
-                        <p className="text-sm font-semibold text-gray-900 truncate">
-                          {item.title}
-                        </p>
-                        <p className="text-sm font-bold text-gray-900">{item.price}</p>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              </div>
+            {hasComboItems && (
+              <FrequentlyBoughtTogether
+                title="Choose items in this combo"
+                subtitle={comboSelectionLabel}
+                products={comboItems}
+                selectedHandles={selectedComboItems}
+                onSelectionChange={setSelectedComboItems}
+              />
             )}
 
             {/* Frequently Bought Together Section (Moved Below Combo) */}
-            {/* Frequently Bought Together Section (Moved Below Combo) */}
-            {relatedProducts.length > 0 && (
+            {relatedProducts.length > 0 && !hasComboItems && (
               <FrequentlyBoughtTogether
                 products={relatedProducts}
                 selectedHandles={selectedFbtItems}
@@ -999,8 +947,11 @@ const ProductDetails = () => {
             <SizeSelectionModal
               isOpen={showSizeModal}
               onClose={() => setShowSizeModal(false)}
-              items={relatedProducts.filter(p => selectedFbtItems.has(p.handle))}
-              mainProduct={product}
+              items={
+                hasComboItems
+                  ? selectedComboList
+                  : relatedProducts.filter((p) => selectedFbtItems.has(p.handle))
+              }
               onConfirm={handleConfirmSizes}
             />
 
