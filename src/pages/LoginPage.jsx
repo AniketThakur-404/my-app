@@ -8,12 +8,15 @@ const LoginPage = () => {
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [localError, setLocalError] = useState('');
+    const [resendStatus, setResendStatus] = useState(null);
+    const [resending, setResending] = useState(false);
     const { login, loading, error } = useAuth();
     const navigate = useNavigate();
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLocalError('');
+        setResendStatus(null);
 
         if (!email || !password) {
             setLocalError('Please fill in all fields');
@@ -26,6 +29,45 @@ const LoginPage = () => {
         }
     };
 
+    const handleResendVerification = async () => {
+        setResendStatus(null);
+
+        if (!email) {
+            setResendStatus({ type: 'error', message: 'Enter your email to resend verification.' });
+            return;
+        }
+
+        try {
+            setResending(true);
+            const response = await fetch('/api/resend-verification', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email }),
+            });
+            const data = await response.json().catch(() => ({}));
+
+            if (!response.ok) {
+                setResendStatus({
+                    type: 'error',
+                    message: data?.error || 'Unable to resend verification email.',
+                });
+                return;
+            }
+
+            setResendStatus({
+                type: 'success',
+                message: data?.message || 'Verification email sent. Please check your inbox.',
+            });
+        } catch (err) {
+            setResendStatus({
+                type: 'error',
+                message: 'Unable to resend verification email.',
+            });
+        } finally {
+            setResending(false);
+        }
+    };
+
     return (
         <div className="min-h-screen pt-32 pb-16 site-shell flex flex-col items-center">
             <div className="w-full max-w-md">
@@ -35,6 +77,16 @@ const LoginPage = () => {
                 </div>
 
                 <form onSubmit={handleSubmit} className="bg-white border border-gray-200 rounded-lg p-8 shadow-sm">
+                    {resendStatus && (
+                        <div
+                            className={`mb-6 p-4 rounded-lg text-sm border ${resendStatus.type === 'success'
+                                ? 'bg-green-50 border-green-200 text-green-700'
+                                : 'bg-red-50 border-red-200 text-red-700'
+                                }`}
+                        >
+                            {resendStatus.message}
+                        </div>
+                    )}
                     {(localError || error) && (
                         <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
                             {localError || error}
@@ -89,6 +141,15 @@ const LoginPage = () => {
                                 <span>Sign In</span>
                             </>
                         )}
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={handleResendVerification}
+                        disabled={resending}
+                        className="w-full mt-4 text-sm font-semibold text-gray-700 hover:text-black disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                        {resending ? 'Sending verification email...' : "Didn't get the email? Resend verification"}
                     </button>
 
                     <div className="mt-6 text-center text-sm text-gray-600">

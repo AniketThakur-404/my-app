@@ -19,6 +19,10 @@ export default function HomePage() {
   const [moreProducts, setMoreProducts] = useState([]);
   const [selectedSkintone, setSelectedSkintone] = useState(null);
 
+  const handleSkintoneScroll = () => {
+    document.getElementById('skintone-selector')?.scrollIntoView({ behavior: 'smooth' });
+  };
+
   // Scroll to occasion selector when skintone is selected
   useEffect(() => {
     if (selectedSkintone) {
@@ -113,10 +117,14 @@ export default function HomePage() {
           <TypewriterSearch onSearchClick={() => document.dispatchEvent(new CustomEvent('open-search'))} />
         </div>
 
-        <HeroWith3D heroVideoSrc={heroVideo} />
+        <HeroWith3D
+          heroVideoSrc={heroVideo}
+          ctaLabel="Select Skintone"
+          onCtaClick={handleSkintoneScroll}
+        />
       </div>
 
-      <div className="site-shell section-gap">
+      <div id="skintone-selector" className="site-shell section-gap">
         <SkintoneSelector onSelect={setSelectedSkintone} />
       </div>
 

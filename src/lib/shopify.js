@@ -238,6 +238,7 @@ export function normalizeProductNode(node) {
     optionValues: optionLookup,
     collections,
     metafields: node.metafields ?? [],
+    reviewsJson: node.metafield?.value ?? null,
     comboItems,
     seo: node.seo ?? null,
     availableForSale: Boolean(node.availableForSale),

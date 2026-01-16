@@ -49,6 +49,57 @@ const AccordionItem = ({ title, isOpen, onClick, children }) => (
   </div>
 );
 
+const parseReviewPayload = (raw) => {
+  if (!raw) return { items: [], summary: null };
+  try {
+    const parsed = JSON.parse(raw);
+    const items = Array.isArray(parsed)
+      ? parsed
+      : Array.isArray(parsed?.reviews)
+        ? parsed.reviews
+        : Array.isArray(parsed?.items)
+          ? parsed.items
+          : [];
+    const average =
+      parsed?.averageRating ??
+      parsed?.avgRating ??
+      parsed?.ratingAverage ??
+      parsed?.rating ??
+      parsed?.average ??
+      null;
+    const count =
+      parsed?.reviewCount ??
+      parsed?.count ??
+      parsed?.totalReviews ??
+      parsed?.total ??
+      (items.length ? items.length : null);
+    return {
+      items,
+      summary: average != null || count != null ? { average, count } : null,
+    };
+  } catch {
+    return { items: [], summary: null };
+  }
+};
+
+const pickReviewField = (review, keys) => {
+  if (!review || typeof review !== 'object') return '';
+  for (const key of keys) {
+    const value = review[key];
+    if (value !== undefined && value !== null && String(value).trim() !== '') {
+      return value;
+    }
+  }
+  return '';
+};
+
+const formatReviewDate = (value) => {
+  if (!value) return '';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return String(value);
+  return parsed.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+};
+
 const ProductDetails = () => {
   const { slug } = useParams();
   const navigate = useNavigate();
@@ -78,6 +129,30 @@ const ProductDetails = () => {
   const [selectedFbtItems, setSelectedFbtItems] = useState(new Set());
   const [showSizeModal, setShowSizeModal] = useState(false);
   const productHandle = product?.handle || '';
+  const reviewData = useMemo(
+    () => parseReviewPayload(product?.reviewsJson),
+    [product?.reviewsJson],
+  );
+  const reviewItems = reviewData.items ?? [];
+  const reviewSummary = reviewData.summary;
+  const reviewSummaryText = useMemo(() => {
+    if (!reviewSummary) return '';
+    const averageValue = reviewSummary.average;
+    const countValue = reviewSummary.count;
+    const averageNumber = Number(averageValue);
+    const averageLabel = Number.isFinite(averageNumber)
+      ? averageNumber.toFixed(1)
+      : averageValue != null
+        ? String(averageValue)
+        : '';
+    const countLabel = countValue != null ? String(countValue) : '';
+    if (averageLabel && countLabel) {
+      return `Average rating: ${averageLabel}/5 (${countLabel} reviews)`;
+    }
+    if (averageLabel) return `Average rating: ${averageLabel}/5`;
+    if (countLabel) return `${countLabel} reviews`;
+    return '';
+  }, [reviewSummary]);
 
   const inWishlist = useMemo(
     () => (productHandle ? isWishlisted(productHandle) : false),
@@ -1001,6 +1076,67 @@ const ProductDetails = () => {
                   based on products and promotions.
                 </p>
               </AccordionItem>
+
+              <AccordionItem
+                title="Review"
+                isOpen={openAccordion === 'reviews'}
+                onClick={() => toggleAccordion('reviews')}
+              >
+                {reviewSummaryText ? (
+                  <p className="mb-3 text-sm text-gray-600">{reviewSummaryText}</p>
+                ) : null}
+                {reviewItems.length ? (
+                  <div className="space-y-3">
+                    {reviewItems.slice(0, 3).map((review, index) => {
+                      const reviewObject =
+                        review && typeof review === 'object' ? review : { body: review };
+                      const author =
+                        pickReviewField(reviewObject, ['author', 'name', 'reviewer', 'customer', 'user']) ||
+                        'Anonymous';
+                      const body = pickReviewField(reviewObject, [
+                        'body',
+                        'text',
+                        'content',
+                        'review',
+                        'comment',
+                        'message',
+                      ]);
+                      const ratingValue = pickReviewField(reviewObject, [
+                        'rating',
+                        'stars',
+                        'score',
+                        'value',
+                      ]);
+                      const ratingNumber = Number(ratingValue);
+                      const ratingLabel = ratingValue
+                        ? Number.isFinite(ratingNumber)
+                          ? `Rating: ${ratingNumber}/5`
+                          : `Rating: ${ratingValue}`
+                        : '';
+                      const rawDate = pickReviewField(reviewObject, [
+                        'created_at',
+                        'createdAt',
+                        'date',
+                        'created',
+                      ]);
+                      const formattedDate = formatReviewDate(rawDate);
+
+                      return (
+                        <div key={`review-${index}`} className="rounded-lg border border-gray-200 p-3">
+                          <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
+                            <span className="font-semibold text-gray-700">{author}</span>
+                            {ratingLabel ? <span>{ratingLabel}</span> : null}
+                            {formattedDate ? <span>{formattedDate}</span> : null}
+                          </div>
+                          {body ? <p className="mt-2 text-sm text-gray-700">{body}</p> : null}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-600">No reviews yet.</p>
+                )}
+              </AccordionItem>
             </div>
           </div>
         </div>
@@ -1054,9 +1190,9 @@ const ProductDetails = () => {
             </div>
           </button>
 
-          {/* NEW Text */}
-          <Link to="/new" className="flex flex-col items-center justify-center w-12 h-full">
-            <span className="text-sm font-normal tracking-wide text-gray-900">NEW</span>
+          {/* Shop Text */}
+          <Link to="/products" className="flex flex-col items-center justify-center w-12 h-full">
+            <span className="text-sm font-normal tracking-wide text-gray-900">SHOP</span>
           </Link>
 
           {/* Bag with Heart Badge */}

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/auth-context';
 import { Mail, Lock, Eye, EyeOff, User, UserPlus } from 'lucide-react';
 
@@ -13,8 +13,8 @@ const RegisterPage = () => {
     });
     const [showPassword, setShowPassword] = useState(false);
     const [localError, setLocalError] = useState('');
+    const [successMessage, setSuccessMessage] = useState('');
     const { register, loading, error } = useAuth();
-    const navigate = useNavigate();
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -23,6 +23,7 @@ const RegisterPage = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLocalError('');
+        setSuccessMessage('');
 
         const { firstName, lastName, email, password, confirmPassword } = formData;
 
@@ -43,7 +44,14 @@ const RegisterPage = () => {
 
         const result = await register({ firstName, lastName, email, password });
         if (result.success) {
-            navigate('/profile');
+            setFormData({
+                firstName: '',
+                lastName: '',
+                email: '',
+                password: '',
+                confirmPassword: '',
+            });
+            setSuccessMessage('Account created. Shopify will email you a verification link. Verify it, then sign in.');
         }
     };
 
@@ -56,6 +64,11 @@ const RegisterPage = () => {
                 </div>
 
                 <form onSubmit={handleSubmit} className="bg-white border border-gray-200 rounded-lg p-8 shadow-sm">
+                    {successMessage && (
+                        <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm">
+                            {successMessage}
+                        </div>
+                    )}
                     {(localError || error) && (
                         <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
                             {localError || error}

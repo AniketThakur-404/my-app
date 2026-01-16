@@ -91,10 +91,15 @@ export function AuthProvider({ children }) {
             const errors = result?.customerAccessTokenCreate?.userErrors ?? [];
 
             if (errors.length > 0) {
-                const msg = errors.map(e => e.message).join('; ');
+                const needsVerification = errors.some((err) =>
+                    /disabled|unverified|verify/i.test(err?.message || '')
+                );
+                const msg = needsVerification
+                    ? 'Please verify your email first. Shopify has sent a verification link.'
+                    : errors.map(e => e.message).join('; ');
                 setError(msg);
                 setLoading(false);
-                return { success: false, error: msg };
+                return { success: false, error: msg, requiresVerification: needsVerification };
             }
 
             if (!tokenData?.accessToken) {
@@ -128,15 +133,15 @@ export function AuthProvider({ children }) {
                 return { success: false, error: msg };
             }
 
-            // Auto-login after registration
-            return await login(email, password);
+            setLoading(false);
+            return { success: true, verificationSent: true };
         } catch (e) {
             const msg = e?.message || 'Registration failed';
             setError(msg);
             setLoading(false);
             return { success: false, error: msg };
         }
-    }, [login]);
+    }, []);
 
     const logout = useCallback(async () => {
         const token = getStoredToken();

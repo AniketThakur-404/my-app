@@ -5,7 +5,7 @@ import AntigravityLogo from './AntigravityLogo';
 
 const SPLINE_SCENE_URL = 'https://my.spline.design/aethirathgold-Yt10PlgylthzK19E5WCrB74M/';
 
-export default function HeroWith3D({ heroVideoSrc }) {
+export default function HeroWith3D({ heroVideoSrc, ctaLabel = 'Select Skintone', onCtaClick }) {
   const videoSource = heroVideoSrc || defaultHeroVideo;
   const sectionRef = useRef(null);
   const [parallaxOffset, setParallaxOffset] = useState(0);
@@ -69,8 +69,12 @@ export default function HeroWith3D({ heroVideoSrc }) {
       />
 
       <div className="pointer-events-none absolute inset-0 z-40 flex items-end justify-center px-4 pb-8 sm:pb-12 md:pb-16">
-        <button className="pointer-events-auto mb-6 rounded-full border border-white/95 px-6 py-3 text-[10px] uppercase tracking-[0.35em] text-white/90 transition hover:bg-white hover:text-neutral-900  sm:px-8 sm:text-[11px]">
-          Shop All
+        <button
+          type="button"
+          onClick={onCtaClick}
+          className="pointer-events-auto mb-6 rounded-full border border-white/95 px-6 py-3 text-[10px] uppercase tracking-[0.35em] text-white/90 transition hover:bg-white hover:text-neutral-900  sm:px-8 sm:text-[11px]"
+        >
+          {ctaLabel}
         </button>
       </div>
     </section>

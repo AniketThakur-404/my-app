@@ -24,8 +24,8 @@ export default function BottomNav({ onSearchClick, onCartClick }) {
                 <Search className="w-6 h-6 text-gray-500 stroke-[1.5px]" />
             </button>
 
-            <Link to="/products?sort=created_at" className="flex flex-col items-center justify-center gap-1">
-                <span className={`text-xs font-bold tracking-widest ${isActive('/products') ? 'text-black' : 'text-gray-500'}`}>NEW</span>
+            <Link to="/products" className="flex flex-col items-center justify-center gap-1">
+                <span className={`text-xs font-bold tracking-widest ${isActive('/products') ? 'text-black' : 'text-gray-500'}`}>SHOP</span>
             </Link>
 
             <Link to="/wishlist" className="flex flex-col items-center justify-center gap-1 relative">
