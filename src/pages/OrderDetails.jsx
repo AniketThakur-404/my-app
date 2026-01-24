@@ -90,7 +90,7 @@ export default function OrderDetails() {
                 <div className="flex gap-3 mt-3">
                     <button className="flex-1 py-2 border border-gray-300 rounded text-sm font-bold text-gray-700">Cancel</button>
                     <button className="flex-1 py-2 border border-gray-300 rounded text-sm font-bold text-gray-700">Replace</button>
-                    <button className="flex-1 py-2 border border-gray-300 rounded text-sm font-bold text-gray-700">Track</button>
+                    <Link to="/track-order" className="flex-1 py-2 border border-gray-300 rounded text-sm font-bold text-gray-700 flex items-center justify-center">Track</Link>
                 </div>
 
                 <div className="mt-3 flex items-center justify-between">

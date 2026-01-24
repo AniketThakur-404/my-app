@@ -1,28 +1,26 @@
 import React from 'react';
-import { ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
+
+const image = (file) => `${import.meta.env?.BASE_URL ?? '/'}images/${file}`;
 
 const occasions = [
     {
         id: 'date',
-        title: 'DATE WEAR',
-        description: 'You can wear it College, Coffee date and any casual occasions',
-        image: '/images/occasion-date.jpg',
-        bgColor: 'bg-[#b4c5ce]',
+        title: 'Date Wear',
+        tag: 'Date Wear',
+        image: image('occasion-date.jpg'),
     },
     {
         id: 'puja',
-        title: 'PUJA WEAR',
-        description: 'You can wear it any religious Occasions',
-        image: '/images/occasion-puja.jpg',
-        bgColor: 'bg-[#c6b4ce]',
+        title: 'Puja Wear',
+        tag: 'Puja Wear',
+        image: image('occasion-puja.jpg'),
     },
     {
         id: 'office',
         title: 'Office Wear',
-        description: 'You can wear it any formal occasions',
-        image: '/images/occasion-office.jpg',
-        bgColor: 'bg-[#bce3c5]',
+        tag: 'Office Wear',
+        image: image('occasion-office.jpg'),
     }
 ];
 
@@ -40,17 +38,16 @@ export default function OccasionSelector({ selectedSkintone }) {
                 {occasions.map((occasion) => (
                     <Link
                         key={occasion.id}
-                        to={`/products?skintone=${selectedSkintone}&occasion=${occasion.id}`}
-                        className={`${occasion.bgColor} relative overflow-hidden group hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer rounded-2xl border border-white/40 shadow-md`}
+                        to={`/products?category=${selectedSkintone || 'all'}&occasion=${encodeURIComponent(occasion.tag)}`}
+                        className="group block overflow-hidden rounded-2xl border border-white/40 shadow-md transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
+                        aria-label={occasion.title}
                     >
-                        <div className="w-full">
-                            <img
-                                src={occasion.image}
-                                alt={occasion.title}
-                                className="w-full h-auto object-contain"
-                                loading="lazy"
-                            />
-                        </div>
+                        <img
+                            src={occasion.image}
+                            alt={occasion.title}
+                            className="block w-full h-auto transition-transform duration-700 group-hover:scale-[1.02]"
+                            loading="lazy"
+                        />
                     </Link>
                 ))}
             </div>

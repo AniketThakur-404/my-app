@@ -12,11 +12,11 @@ import CartDrawer from './CartDrawer';
 import BottomNav from './BottomNav';
 
 const marqueeItems = [
-  'EVRYDAE',
+  'THE HOUSE OF ARADHYA',
   'NEW ARRIVALS WEEKLY',
   'EXPRESS SHIPPING',
-  'MEMBERS ONLY DROPS',
-  'LIMITED EDITION RELEASES',
+  'PREMIUM QUALITY',
+  'PAN INDIA DELIVERY',
 ];
 
 const TopAnnouncement = () => (

@@ -20,6 +20,9 @@ import RegisterPage from './pages/RegisterPage';
 import ProfilePage from './pages/ProfilePage';
 import WishlistPage from './pages/WishlistPage';
 import SearchPage from './pages/SearchPage';
+import TrackOrderPage from './pages/TrackOrderPage';
+import CancelRefundExchange from './pages/CancelRefundExchange';
+import CollectionPage from './pages/CollectionPage';
 
 export default function App() {
   return (
@@ -31,6 +34,7 @@ export default function App() {
             <Route index element={<HomePage />} />
             <Route path="search" element={<SearchPage />} />
             <Route path="products" element={<AllProductsPage />} />
+            <Route path="collections/:handle" element={<CollectionPage />} />
             <Route path="shoes" element={<AllProductsPage initialCategory="shoes" />} />
             <Route path="shoes/loafers" element={<AllProductsPage initialCategory="loafers" />} />
             <Route path="shoes/boots" element={<AllProductsPage initialCategory="boots" />} />
@@ -42,6 +46,8 @@ export default function App() {
             <Route path="checkout/address" element={<Address />} />
             <Route path="checkout/payment" element={<Payment />} />
             <Route path="orders" element={<OrderDetails />} />
+            <Route path="track-order" element={<TrackOrderPage />} />
+            <Route path="cancel-refund-exchange" element={<CancelRefundExchange />} />
             <Route path="legal" element={<Navigate to="/legal/privacy-policy" replace />} />
             <Route path="legal/:section" element={<LegalPage />} />
             <Route path="about" element={<AboutPage />} />

@@ -1,6 +1,10 @@
 {
   "rewrites": [
     {
+      "source": "/api/shiprocket/(.*)",
+      "destination": "https://apiv2.shiprocket.in/v1/external/$1"
+    },
+    {
       "source": "/api/(.*)",
       "destination": "/api/$1"
     },

@@ -5,11 +5,51 @@ import { useSearchParams } from 'react-router-dom';
 import { ChevronDown } from 'lucide-react';
 import ProductCard from '../components/ProductCard';
 import { useCatalog } from '../contexts/catalog-context';
-import { toProductCard } from '../lib/shopify';
+import { normaliseTokenValue, toProductCard } from '../lib/shopify';
+
+const normalizeForMatch = (value) => {
+  const normalized = normaliseTokenValue(value);
+  if (!normalized) return '';
+  return normalized.replace(/[^a-z0-9]+/g, ' ').trim();
+};
+
+const tokenize = (value) => normalizeForMatch(value).split(' ').filter(Boolean);
+
+const matchesToken = (source, targetTokens) => {
+  if (!source || targetTokens.length === 0) return false;
+  const sourceTokens = tokenize(source);
+  if (sourceTokens.length === 0) return false;
+  if (targetTokens.length === 1) {
+    return sourceTokens.includes(targetTokens[0]);
+  }
+  if (targetTokens.every((token) => sourceTokens.includes(token))) return true;
+  const collapsedSource = sourceTokens.join('');
+  const collapsedTarget = targetTokens.join('');
+  return collapsedSource.includes(collapsedTarget);
+};
+
+const productMatchesFilter = (product, filterToken) => {
+  if (!filterToken) return true;
+  const targetTokens = tokenize(filterToken);
+  if (targetTokens.length === 0) return true;
+
+  const tags = Array.isArray(product?.tags) ? product.tags : [];
+  const collections = Array.isArray(product?.collections) ? product.collections : [];
+  const candidates = [
+    product?.productType,
+    ...tags,
+    ...collections.map((collection) => collection?.handle),
+    ...collections.map((collection) => collection?.title),
+  ].filter(Boolean);
+
+  return candidates.some((candidate) => matchesToken(candidate, targetTokens));
+};
 
 const AllProductsPage = ({ initialCategory = 'all' }) => {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const activeCategory = searchParams.get('category') ?? initialCategory;
+  const skintoneFilter = normalizeForMatch(searchParams.get('skintone'));
+  const occasionFilter = normalizeForMatch(searchParams.get('occasion'));
 
   const { products: catalogProducts, ensureCollectionProducts } = useCatalog();
   const [products, setProducts] = useState([]);
@@ -26,7 +66,7 @@ const AllProductsPage = ({ initialCategory = 'all' }) => {
         // If 'all', use the default catalog products
         if (catalogProducts?.length) {
           if (!cancelled) {
-            setProducts(catalogProducts.map(toProductCard));
+            setProducts(catalogProducts);
             setLoading(false);
           }
         } else {
@@ -39,7 +79,7 @@ const AllProductsPage = ({ initialCategory = 'all' }) => {
         try {
           const collectionProducts = await ensureCollectionProducts(activeCategory);
           if (!cancelled) {
-            setProducts(collectionProducts.map(toProductCard));
+            setProducts(collectionProducts);
           }
         } catch (e) {
           console.error(`Failed to load collection: ${activeCategory}`, e);
@@ -59,24 +99,49 @@ const AllProductsPage = ({ initialCategory = 'all' }) => {
   // Update products when catalogProducts changes if we are in 'all' mode
   useEffect(() => {
     if (activeCategory === 'all' && catalogProducts?.length) {
-      setProducts(catalogProducts.map(toProductCard));
+      setProducts(catalogProducts);
       setLoading(false);
     }
   }, [catalogProducts, activeCategory]);
 
 
   const sortedProducts = useMemo(() => {
-    let sorted = [...products];
+    const applySkintone = skintoneFilter && skintoneFilter !== 'all';
+    const applyOccasion = occasionFilter && occasionFilter !== 'all';
+    let filtered = products;
+    if (applySkintone || applyOccasion) {
+      filtered = products.filter((product) => {
+        const matchesSkintone = applySkintone
+          ? productMatchesFilter(product, skintoneFilter)
+          : true;
+        const matchesOccasion = applyOccasion
+          ? productMatchesFilter(product, occasionFilter)
+          : true;
+        return matchesSkintone && matchesOccasion;
+      });
+    }
+
+    let sorted = [...filtered];
     if (sortBy === 'price_low') {
-      sorted.sort((a, b) => parseFloat(a.price.replace(/[^0-9.]/g, '')) - parseFloat(b.price.replace(/[^0-9.]/g, '')));
+      sorted.sort((a, b) => (a?.price ?? 0) - (b?.price ?? 0));
     } else if (sortBy === 'price_high') {
-      sorted.sort((a, b) => parseFloat(b.price.replace(/[^0-9.]/g, '')) - parseFloat(a.price.replace(/[^0-9.]/g, '')));
+      sorted.sort((a, b) => (b?.price ?? 0) - (a?.price ?? 0));
     } else if (sortBy === 'new') {
       // Mock sort for newness if date not available, or use id
-      sorted.sort((a, b) => b.id.localeCompare(a.id));
+      sorted.sort((a, b) => String(b?.id || '').localeCompare(String(a?.id || '')));
     }
-    return sorted;
-  }, [products, sortBy]);
+    return sorted.map(toProductCard).filter(Boolean);
+  }, [products, sortBy, skintoneFilter, occasionFilter]);
+
+  const updateFilter = (key, value) => {
+    const prev = new URLSearchParams(searchParams);
+    if (!value || value === 'all') {
+      prev.delete(key);
+    } else {
+      prev.set(key, value);
+    }
+    setSearchParams(prev);
+  };
 
   return (
     <div className="bg-white min-h-screen">
@@ -99,23 +164,49 @@ const AllProductsPage = ({ initialCategory = 'all' }) => {
       {/* Filter Bar */}
       <div className="border-t border-b border-gray-200 bg-white">
         <div className="site-shell py-3 flex justify-between items-center gap-4">
-          {/* Left: Filters (Mock) - Scrollable on mobile */}
+          {/* Left: Filters */}
           <div className="flex items-center gap-2 md:gap-4 overflow-x-auto no-scrollbar whitespace-nowrap flex-1">
+
+            {/* Skin Tone Filter */}
             <div className="relative group">
-              <button className="flex items-center gap-1 text-sm font-bold text-gray-700 hover:bg-gray-100 px-3 py-2 rounded-full transition-colors whitespace-nowrap">
-                Bundles <ChevronDown className="w-4 h-4" />
+              <button className={`flex items-center gap-1 text-sm font-bold px-4 py-2 rounded-full transition-colors whitespace-nowrap ${skintoneFilter ? 'bg-black text-white' : 'text-gray-700 hover:bg-gray-100'
+                }`}>
+                {skintoneFilter ? `Skin: ${skintoneFilter}` : 'Skin Tone'} <ChevronDown className="w-4 h-4" />
               </button>
+              <div className="absolute top-full left-0 mt-1 w-40 bg-white border border-gray-100 shadow-lg py-2 hidden group-hover:block z-40 rounded-lg">
+                <button onClick={() => updateFilter('skintone', 'all')} className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-50">All</button>
+                <button onClick={() => updateFilter('skintone', 'fair')} className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-50">Fair</button>
+                <button onClick={() => updateFilter('skintone', 'neutral')} className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-50">Neutral</button>
+                <button onClick={() => updateFilter('skintone', 'dark')} className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-50">Dark</button>
+              </div>
             </div>
+
+            {/* Occasion Filter */}
             <div className="relative group">
-              <button className="flex items-center gap-1 text-sm font-bold text-gray-700 hover:bg-gray-100 px-3 py-2 rounded-full transition-colors whitespace-nowrap">
-                Country of Origin <ChevronDown className="w-4 h-4" />
+              <button className={`flex items-center gap-1 text-sm font-bold px-4 py-2 rounded-full transition-colors whitespace-nowrap ${occasionFilter ? 'bg-black text-white' : 'text-gray-700 hover:bg-gray-100'
+                }`}>
+                {occasionFilter ? `Occasion: ${occasionFilter}` : 'Occasion'} <ChevronDown className="w-4 h-4" />
               </button>
+              <div className="absolute top-full left-0 mt-1 w-48 bg-white border border-gray-100 shadow-lg py-2 hidden group-hover:block z-40 rounded-lg">
+                <button onClick={() => updateFilter('occasion', 'all')} className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-50">All</button>
+                <button onClick={() => updateFilter('occasion', 'date')} className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-50">Date Wear</button>
+                <button onClick={() => updateFilter('occasion', 'office')} className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-50">Office Wear</button>
+                <button onClick={() => updateFilter('occasion', 'puja')} className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-50">Puja/Festive</button>
+                <button onClick={() => updateFilter('occasion', 'party')} className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-50">Party</button>
+                <button onClick={() => updateFilter('occasion', 'casual')} className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-50">Casual</button>
+              </div>
             </div>
-            <div className="relative group">
-              <button className="flex items-center gap-1 text-sm font-bold text-gray-700 hover:bg-gray-100 px-3 py-2 rounded-full transition-colors whitespace-nowrap">
-                Size <ChevronDown className="w-4 h-4" />
+
+            {/* Clear Filters */}
+            {(skintoneFilter || occasionFilter) && (
+              <button
+                onClick={() => setSearchParams(new URLSearchParams())}
+                className="text-xs text-red-600 font-bold hover:underline"
+              >
+                Reset
               </button>
-            </div>
+            )}
+
           </div>
 
           {/* Right: Sort - Fixed width/shrink */}
@@ -143,7 +234,7 @@ const AllProductsPage = ({ initialCategory = 'all' }) => {
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-x-6 gap-y-10">
             {sortedProducts.length > 0 ? (
               sortedProducts.map((product, index) => (
-                <ProductCard key={product.id || index} item={product} />
+                <ProductCard key={product.handle || product.id || index} item={product} />
               ))
             ) : (
               <div className="col-span-full text-center py-20 text-gray-500">No products found in this category.</div>

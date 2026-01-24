@@ -12,6 +12,7 @@ import {
   User,
   Menu,
 } from 'lucide-react';
+import PincodeChecker from '../components/PincodeChecker';
 import MobilePageHeader from '../components/MobilePageHeader';
 import FrequentlyBoughtTogether from '../components/FrequentlyBoughtTogether';
 import ProductGrid from '../components/ProductGrid';
@@ -1048,22 +1049,7 @@ const ProductDetails = () => {
                 isOpen={openAccordion === 'delivery'}
                 onClick={() => toggleAccordion('delivery')}
               >
-                <div className="flex gap-2 relative max-w-xs mb-2">
-                  <input
-                    type="text"
-                    placeholder="Enter pincode"
-                    value={pincode}
-                    onChange={(e) => setPincode(e.target.value)}
-                    className="w-full border-b border-gray-300 py-2 text-sm focus:outline-none focus:border-black"
-                  />
-                  <button className="text-black font-bold text-xs absolute right-0 top-1/2 -translate-y-1/2 uppercase">
-                    Check
-                  </button>
-                </div>
-                <p className="text-xs text-gray-500">
-                  Enter your pincode to check delivery time & Pay on Delivery
-                  availability.
-                </p>
+                <PincodeChecker />
               </AccordionItem>
 
               <AccordionItem

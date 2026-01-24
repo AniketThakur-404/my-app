@@ -268,11 +268,14 @@ export function toProductCard(product) {
 const mapCollectionNode = (node) => {
   if (!node) return null;
   if (shouldHideCollectionNode(node)) return null;
+  const image =
+    normaliseImage(node.image, node.title) ??
+    normaliseImage(node.products?.nodes?.[0]?.featuredImage, node.title);
   return {
     id: node.id,
     handle: node.handle,
     title: node.title,
-    image: normaliseImage(node.image, node.title),
+    image,
     description: node.description ?? "",
   };
 };

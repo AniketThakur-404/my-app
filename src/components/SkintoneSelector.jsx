@@ -1,22 +1,21 @@
 import React from 'react';
-import { ChevronRight } from 'lucide-react';
 import fairImg from '@/assets/images/skintone-fair.png';
 import neutralImg from '@/assets/images/skintone-neutral.png';
 import darkImg from '@/assets/images/skintone-dark.png';
 
 const skintones = [
   {
-    id: 'fair',
+    id: 'fair-skin',
     label: 'FAIR SKINTONE',
     image: fairImg,
   },
   {
-    id: 'neutral',
+    id: 'neutral-skin',
     label: 'NEUTRAL SKINTONE',
     image: neutralImg,
   },
   {
-    id: 'dark',
+    id: 'dark-skin',
     label: 'DARK SKINTONE',
     image: darkImg,
   },

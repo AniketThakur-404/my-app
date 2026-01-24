@@ -1,6 +1,6 @@
 import React from 'react';
-import { NavLink, useParams, Navigate } from 'react-router-dom';
-import { Shield, Cookie, RefreshCw, Key, Lock, FileText, AlertCircle } from 'lucide-react';
+import { NavLink, useParams } from 'react-router-dom';
+import { Shield, Cookie, RefreshCw, Lock, Package, Truck, MapPin, XCircle, RotateCcw } from 'lucide-react';
 
 const LegalPage = () => {
     const { section } = useParams();
@@ -9,13 +9,377 @@ const LegalPage = () => {
         { name: 'Terms of Use', path: 'terms-of-use' },
         { name: 'Privacy Policy', path: 'privacy-policy' },
         { name: 'Money Back Policy', path: 'money-back-policy' },
+        { name: 'Refund & Return Policy', path: 'refund-return-policy' },
+        { name: 'Refund Process', path: 'refund-process' },
+        { name: 'Cancellation Process', path: 'cancellation-process' },
+        { name: 'Packaging Details', path: 'packaging-details' },
+        { name: 'Delivery Timelines', path: 'delivery-timelines' },
+        { name: 'Tracking Details', path: 'tracking-details' },
         { name: 'Accessibility', path: 'accessibility' },
-        { name: 'Cookie policy', path: 'cookie-policy' },
-        { name: 'Security overview', path: 'security-overview', isSeparator: true },
+        { name: 'Cookie Policy', path: 'cookie-policy' },
+        { name: 'Security Overview', path: 'security-overview', isSeparator: true },
     ];
 
     const renderContent = () => {
         switch (section) {
+            case 'refund-return-policy':
+                return (
+                    <div className="space-y-8 animate-fade-in">
+                        <div>
+                            <h1 className="text-2xl font-bold flex items-center gap-2 mb-2">
+                                <RotateCcw className="w-6 h-6 text-blue-500" />
+                                Refund and Return Policy
+                            </h1>
+                            <p className="text-xs text-gray-500 font-bold mb-4">Last Updated: January 2026</p>
+                        </div>
+
+                        <section>
+                            <h2 className="text-xl font-bold mb-2">Return Eligibility</h2>
+                            <p className="text-gray-600 text-sm leading-relaxed mb-4">
+                                Returns are accepted within <strong>7 days</strong> from the date of delivery.
+                            </p>
+                            <ul className="list-disc pl-5 mt-2 space-y-2 text-gray-600 text-sm">
+                                <li>Products must be <strong>unused, unwashed, and in original condition</strong> with all tags and packaging intact.</li>
+                                <li>Both prepaid and Cash on Delivery (COD) orders are eligible for return, subject to quality inspection.</li>
+                                <li>Refunds will be issued only after the returned product passes inspection.</li>
+                                <li>If the product fails quality checks, the refund request may be declined.</li>
+                            </ul>
+                        </section>
+
+                        <section>
+                            <h2 className="text-xl font-bold flex items-center gap-2 mb-2">
+                                <span className="text-red-500">🚫</span>
+                                Non-Returnable Items
+                            </h2>
+                            <ul className="list-disc pl-5 mt-2 space-y-2 text-gray-600 text-sm">
+                                <li>Products that have been used, worn, or washed</li>
+                                <li>Products with missing tags or damaged packaging</li>
+                                <li>Customized or altered outfits</li>
+                                <li>Items damaged due to customer misuse</li>
+                            </ul>
+                        </section>
+
+                        <section>
+                            <h2 className="text-xl font-bold flex items-center gap-2 mb-2">
+                                <span className="text-blue-500">📬</span>
+                                How to Initiate a Return
+                            </h2>
+                            <p className="text-gray-600 text-sm leading-relaxed mb-2">
+                                To request a return, contact our support team:
+                            </p>
+                            <ul className="text-sm text-gray-700 space-y-1">
+                                <li><strong>Email:</strong> aradhyaclothing09@gmail.com</li>
+                                <li><strong>Phone:</strong> 7602455773</li>
+                            </ul>
+                            <p className="text-gray-600 text-sm leading-relaxed mt-4">
+                                Please include your order ID and reason for return in your request.
+                            </p>
+                        </section>
+                    </div>
+                );
+
+            case 'refund-process':
+                return (
+                    <div className="space-y-8 animate-fade-in">
+                        <div>
+                            <h1 className="text-2xl font-bold flex items-center gap-2 mb-2">
+                                <span className="text-green-500">💳</span>
+                                Refund Process
+                            </h1>
+                            <p className="text-xs text-gray-500 font-bold mb-4">Last Updated: January 2026</p>
+                        </div>
+
+                        <section>
+                            <h2 className="text-xl font-bold mb-2">Processing Timeline</h2>
+                            <p className="text-gray-600 text-sm leading-relaxed">
+                                Once a returned product is received and inspected, the refund will be initiated within <strong>5–7 working days</strong>.
+                            </p>
+                        </section>
+
+                        <section>
+                            <h2 className="text-xl font-bold mb-2">Refund Methods</h2>
+                            <ul className="list-disc pl-5 mt-2 space-y-2 text-gray-600 text-sm">
+                                <li>Refunds are processed only to the <strong>original payment method</strong> used during purchase.</li>
+                                <li>For <strong>Cash on Delivery (COD)</strong> orders, refunds will be processed via bank transfer or UPI after verification.</li>
+                            </ul>
+                        </section>
+
+                        <section>
+                            <h2 className="text-xl font-bold flex items-center gap-2 mb-2">
+                                <span className="text-orange-500">⚠️</span>
+                                Non-Refundable Charges
+                            </h2>
+                            <ul className="list-disc pl-5 mt-2 space-y-2 text-gray-600 text-sm">
+                                <li>Shipping charges are <strong>non-refundable</strong></li>
+                                <li>COD charges (if applicable) are <strong>non-refundable</strong></li>
+                            </ul>
+                        </section>
+
+                        <section>
+                            <h2 className="text-xl font-bold mb-2">Refund Notification</h2>
+                            <p className="text-gray-600 text-sm leading-relaxed">
+                                Customers will be notified via email once the refund has been processed. Please allow 2-3 business days for the amount to reflect in your account after processing.
+                            </p>
+                        </section>
+
+                        <section>
+                            <h2 className="text-xl font-bold flex items-center gap-2 mb-2">
+                                <span className="text-blue-500">📬</span>
+                                Need Help?
+                            </h2>
+                            <ul className="text-sm text-gray-700 space-y-1">
+                                <li><strong>Email:</strong> aradhyaclothing09@gmail.com</li>
+                                <li><strong>Phone:</strong> 7602455773</li>
+                            </ul>
+                        </section>
+                    </div>
+                );
+
+            case 'cancellation-process':
+                return (
+                    <div className="space-y-8 animate-fade-in">
+                        <div>
+                            <h1 className="text-2xl font-bold flex items-center gap-2 mb-2">
+                                <XCircle className="w-6 h-6 text-red-500" />
+                                Cancellation Process
+                            </h1>
+                            <p className="text-xs text-gray-500 font-bold mb-4">Last Updated: January 2026</p>
+                        </div>
+
+                        <section>
+                            <h2 className="text-xl font-bold mb-2">When Can You Cancel?</h2>
+                            <p className="text-gray-600 text-sm leading-relaxed">
+                                Orders can be cancelled <strong>only before they are dispatched</strong> from our warehouse.
+                            </p>
+                        </section>
+
+                        <section>
+                            <h2 className="text-xl font-bold flex items-center gap-2 mb-2">
+                                <span className="text-orange-500">⚠️</span>
+                                After Dispatch
+                            </h2>
+                            <p className="text-gray-600 text-sm leading-relaxed">
+                                Once an order has been shipped, cancellation requests will <strong>not be accepted</strong>. In such cases, customers may follow the return or exchange process after delivery, as per our return policy.
+                            </p>
+                        </section>
+
+                        <section>
+                            <h2 className="text-xl font-bold mb-2">Seller-Initiated Cancellation</h2>
+                            <p className="text-gray-600 text-sm leading-relaxed mb-2">
+                                Aradhya reserves the right to cancel any order due to:
+                            </p>
+                            <ul className="list-disc pl-5 mt-2 space-y-2 text-gray-600 text-sm">
+                                <li>Inventory issues or stock unavailability</li>
+                                <li>Pricing errors on the website</li>
+                                <li>Suspected fraudulent activity</li>
+                            </ul>
+                            <p className="text-gray-600 text-sm leading-relaxed mt-4">
+                                In case of seller-initiated cancellation, a full refund will be processed to the original payment method.
+                            </p>
+                        </section>
+
+                        <section>
+                            <h2 className="text-xl font-bold flex items-center gap-2 mb-2">
+                                <span className="text-blue-500">📬</span>
+                                Request Cancellation
+                            </h2>
+                            <p className="text-gray-600 text-sm leading-relaxed mb-2">
+                                To cancel an order, contact us immediately:
+                            </p>
+                            <ul className="text-sm text-gray-700 space-y-1">
+                                <li><strong>Email:</strong> aradhyaclothing09@gmail.com</li>
+                                <li><strong>Phone:</strong> 7602455773</li>
+                            </ul>
+                        </section>
+                    </div>
+                );
+
+            case 'packaging-details':
+                return (
+                    <div className="space-y-8 animate-fade-in">
+                        <div>
+                            <h1 className="text-2xl font-bold flex items-center gap-2 mb-2">
+                                <Package className="w-6 h-6 text-amber-600" />
+                                Packaging Details
+                            </h1>
+                            <p className="text-xs text-gray-500 font-bold mb-4">Last Updated: January 2026</p>
+                        </div>
+
+                        <section>
+                            <h2 className="text-xl font-bold mb-2">Secure Packaging</h2>
+                            <p className="text-gray-600 text-sm leading-relaxed">
+                                All orders are <strong>securely packed</strong> to ensure product safety during transit. Each item is checked before dispatch and packed using protective packaging materials to prevent damage.
+                            </p>
+                        </section>
+
+                        <section>
+                            <h2 className="text-xl font-bold flex items-center gap-2 mb-2">
+                                <span className="text-green-500">✓</span>
+                                Quality Control
+                            </h2>
+                            <ul className="list-disc pl-5 mt-2 space-y-2 text-gray-600 text-sm">
+                                <li>Each product undergoes inspection before dispatch</li>
+                                <li>Protective materials used to prevent transit damage</li>
+                                <li>Standard hygiene measures followed during packing</li>
+                                <li>Products packed to arrive in best possible condition</li>
+                            </ul>
+                        </section>
+
+                        <section>
+                            <h2 className="text-xl font-bold mb-2">What's Included</h2>
+                            <ul className="list-disc pl-5 mt-2 space-y-2 text-gray-600 text-sm">
+                                <li>Your ordered product(s)</li>
+                                <li>Invoice/receipt</li>
+                                <li>Care instructions (where applicable)</li>
+                                <li>Return/exchange information</li>
+                            </ul>
+                        </section>
+
+                        <section>
+                            <h2 className="text-xl font-bold flex items-center gap-2 mb-2">
+                                <span className="text-blue-500">📬</span>
+                                Packaging Issues?
+                            </h2>
+                            <p className="text-gray-600 text-sm leading-relaxed mb-2">
+                                If you receive a damaged package, please contact us immediately with photos:
+                            </p>
+                            <ul className="text-sm text-gray-700 space-y-1">
+                                <li><strong>Email:</strong> aradhyaclothing09@gmail.com</li>
+                                <li><strong>Phone:</strong> 7602455773</li>
+                            </ul>
+                        </section>
+                    </div>
+                );
+
+            case 'delivery-timelines':
+                return (
+                    <div className="space-y-8 animate-fade-in">
+                        <div>
+                            <h1 className="text-2xl font-bold flex items-center gap-2 mb-2">
+                                <Truck className="w-6 h-6 text-blue-600" />
+                                Delivery Timelines
+                            </h1>
+                            <p className="text-xs text-gray-500 font-bold mb-4">Last Updated: January 2026</p>
+                        </div>
+
+                        <section>
+                            <h2 className="text-xl font-bold mb-2">Standard Delivery</h2>
+                            <p className="text-gray-600 text-sm leading-relaxed">
+                                Orders are typically delivered within <strong>3–8 working days</strong> from the date of dispatch.
+                            </p>
+                        </section>
+
+                        <section>
+                            <h2 className="text-xl font-bold flex items-center gap-2 mb-2">
+                                <span className="text-orange-500">⚠️</span>
+                                Factors Affecting Delivery
+                            </h2>
+                            <p className="text-gray-600 text-sm leading-relaxed mb-2">
+                                Delivery timelines may vary depending on:
+                            </p>
+                            <ul className="list-disc pl-5 mt-2 space-y-2 text-gray-600 text-sm">
+                                <li>Customer location and pin code serviceability</li>
+                                <li>Courier partner operations</li>
+                                <li>Weather conditions</li>
+                                <li>Unforeseen circumstances (holidays, strikes, etc.)</li>
+                            </ul>
+                        </section>
+
+                        <section>
+                            <h2 className="text-xl font-bold mb-2">Important Note</h2>
+                            <p className="text-gray-600 text-sm leading-relaxed">
+                                Aradhya is <strong>not responsible for delays</strong> caused by courier partners once the order has been handed over for delivery. However, we work closely with our logistics partners to ensure timely deliveries.
+                            </p>
+                        </section>
+
+                        <section>
+                            <h2 className="text-xl font-bold flex items-center gap-2 mb-2">
+                                <span className="text-green-500">🚀</span>
+                                Order Processing
+                            </h2>
+                            <ul className="list-disc pl-5 mt-2 space-y-2 text-gray-600 text-sm">
+                                <li>Orders are processed within 1-2 business days</li>
+                                <li>You'll receive a confirmation email once your order is dispatched</li>
+                                <li>Tracking details will be shared via SMS and email</li>
+                            </ul>
+                        </section>
+
+                        <section>
+                            <h2 className="text-xl font-bold flex items-center gap-2 mb-2">
+                                <span className="text-blue-500">📬</span>
+                                Delivery Queries?
+                            </h2>
+                            <ul className="text-sm text-gray-700 space-y-1">
+                                <li><strong>Email:</strong> aradhyaclothing09@gmail.com</li>
+                                <li><strong>Phone:</strong> 7602455773</li>
+                            </ul>
+                        </section>
+                    </div>
+                );
+
+            case 'tracking-details':
+                return (
+                    <div className="space-y-8 animate-fade-in">
+                        <div>
+                            <h1 className="text-2xl font-bold flex items-center gap-2 mb-2">
+                                <MapPin className="w-6 h-6 text-green-600" />
+                                Tracking Details
+                            </h1>
+                            <p className="text-xs text-gray-500 font-bold mb-4">Last Updated: January 2026</p>
+                        </div>
+
+                        <section>
+                            <h2 className="text-xl font-bold mb-2">How to Track Your Order</h2>
+                            <p className="text-gray-600 text-sm leading-relaxed">
+                                Once an order is shipped, customers will receive tracking details via <strong>SMS or email</strong>.
+                            </p>
+                        </section>
+
+                        <section>
+                            <h2 className="text-xl font-bold flex items-center gap-2 mb-2">
+                                <span className="text-blue-500">📱</span>
+                                Tracking Information
+                            </h2>
+                            <ul className="list-disc pl-5 mt-2 space-y-2 text-gray-600 text-sm">
+                                <li>You will receive a <strong>tracking ID</strong> and courier partner details</li>
+                                <li>Use the tracking ID to monitor shipment status on the courier's website</li>
+                                <li>Real-time updates on package location and delivery status</li>
+                            </ul>
+                        </section>
+
+                        <section>
+                            <h2 className="text-xl font-bold mb-2">What You Can Track</h2>
+                            <ul className="list-disc pl-5 mt-2 space-y-2 text-gray-600 text-sm">
+                                <li>Order dispatch confirmation</li>
+                                <li>In-transit updates</li>
+                                <li>Out for delivery notification</li>
+                                <li>Delivery confirmation</li>
+                            </ul>
+                        </section>
+
+                        <section>
+                            <h2 className="text-xl font-bold flex items-center gap-2 mb-2">
+                                <span className="text-orange-500">❓</span>
+                                Tracking Issues?
+                            </h2>
+                            <p className="text-gray-600 text-sm leading-relaxed mb-2">
+                                In case of any tracking issues or if your tracking information is not updating, please contact our support team for assistance:
+                            </p>
+                            <ul className="text-sm text-gray-700 space-y-1">
+                                <li><strong>Email:</strong> aradhyaclothing09@gmail.com</li>
+                                <li><strong>Phone:</strong> 7602455773</li>
+                            </ul>
+                        </section>
+
+                        <section>
+                            <h2 className="text-xl font-bold mb-2">Our Delivery Partner</h2>
+                            <p className="text-gray-600 text-sm leading-relaxed">
+                                We work with <strong>Shiprocket</strong> and other trusted courier partners to ensure safe and timely delivery of your orders across India.
+                            </p>
+                        </section>
+                    </div>
+                );
+
             case 'security-overview':
                 return (
                     <div className="space-y-8 animate-fade-in">
@@ -24,7 +388,7 @@ const LegalPage = () => {
                                 <Shield className="w-6 h-6 text-blue-500" />
                                 Security Overview
                             </h1>
-                            <p className="text-xs text-gray-500 font-bold mb-4">Last Updated: July 21, 2025</p>
+                            <p className="text-xs text-gray-500 font-bold mb-4">Last Updated: January 2026</p>
                         </div>
 
                         <section>
@@ -83,7 +447,7 @@ const LegalPage = () => {
                     <div className="space-y-8 animate-fade-in">
                         <div>
                             <h1 className="text-2xl font-bold mb-2">Cookie Policy</h1>
-                            <p className="text-xs text-gray-500 font-bold mb-4">Last Revised: July 21, 2025</p>
+                            <p className="text-xs text-gray-500 font-bold mb-4">Last Revised: January 2026</p>
                         </div>
 
                         <section>
@@ -164,7 +528,7 @@ const LegalPage = () => {
                                 <span className="text-green-500">💸</span>
                                 Money Back Policy
                             </h1>
-                            <p className="text-xs text-gray-500 font-bold mb-4">Last Updated: July 21, 2025</p>
+                            <p className="text-xs text-gray-500 font-bold mb-4">Last Updated: January 2026</p>
                         </div>
 
                         <section>
@@ -173,7 +537,7 @@ const LegalPage = () => {
                                 7-Day Money Back Guarantee
                             </h2>
                             <p className="text-gray-600 text-sm leading-relaxed">
-                                We offer a 7-day money back policy for products that meet the return eligibility. If you’re not satisfied, you can request a refund within <strong>7 days of delivery</strong>.
+                                We offer a 7-day money back policy for products that meet the return eligibility. If you're not satisfied, you can request a refund within <strong>7 days of delivery</strong>.
                             </p>
                         </section>
 
@@ -285,7 +649,7 @@ const LegalPage = () => {
                             <p className="text-gray-600 text-sm leading-relaxed">
                                 We regularly audit and improve our website's accessibility features. As our brand grows, so will our focus on inclusivity — making sure fashion is truly for everyone.
                             </p>
-                            <p className="text-xs text-gray-500 mt-4">Last updated: July 2025</p>
+                            <p className="text-xs text-gray-500 mt-4">Last updated: January 2026</p>
                         </section>
 
                     </div>
@@ -299,7 +663,7 @@ const LegalPage = () => {
                                 <span className="text-yellow-600">🔒</span>
                                 Privacy Policy
                             </h1>
-                            <p className="text-xs text-gray-500 font-bold mb-4">Last Updated: July 21, 2025</p>
+                            <p className="text-xs text-gray-500 font-bold mb-4">Last Updated: January 2026</p>
                         </div>
 
                         <section>
@@ -373,7 +737,7 @@ const LegalPage = () => {
                 );
 
             default:
-                // Terms of Use default or placeholder
+                // Terms of Use default
                 return (
                     <div className="space-y-8 animate-fade-in">
                         <h1 className="text-2xl font-bold mb-4">Terms of Use</h1>
@@ -381,10 +745,53 @@ const LegalPage = () => {
                             Welcome to The House of Aradhya. By accessing our website, you agree to these terms and conditions.
                             Please read them carefully before using our services.
                         </p>
-                        {/* ... Typical generic terms content or placeholder ... */}
-                        <div className="h-40 flex items-center justify-center bg-gray-50 rounded text-gray-400">
-                            Terms content coming soon...
-                        </div>
+
+                        <section>
+                            <h2 className="text-xl font-bold mb-2">1. Acceptance of Terms</h2>
+                            <p className="text-gray-600 text-sm leading-relaxed">
+                                By accessing and using <strong>thehouseofaradhya.com</strong>, you accept and agree to be bound by these Terms of Use and our Privacy Policy. If you do not agree, please do not use our website.
+                            </p>
+                        </section>
+
+                        <section>
+                            <h2 className="text-xl font-bold mb-2">2. Use of Website</h2>
+                            <ul className="list-disc pl-5 mt-2 space-y-2 text-gray-600 text-sm">
+                                <li>You must be at least 18 years old to make purchases</li>
+                                <li>You agree to provide accurate and complete information</li>
+                                <li>You are responsible for maintaining account confidentiality</li>
+                                <li>Commercial use without permission is prohibited</li>
+                            </ul>
+                        </section>
+
+                        <section>
+                            <h2 className="text-xl font-bold mb-2">3. Products and Pricing</h2>
+                            <p className="text-gray-600 text-sm leading-relaxed">
+                                We strive to display accurate product information and pricing. However, errors may occur. We reserve the right to correct any errors and cancel orders placed at incorrect prices.
+                            </p>
+                        </section>
+
+                        <section>
+                            <h2 className="text-xl font-bold mb-2">4. Order Acceptance</h2>
+                            <p className="text-gray-600 text-sm leading-relaxed">
+                                All orders are subject to acceptance and availability. We may refuse or cancel orders at our discretion for reasons including suspected fraud, pricing errors, or inventory issues.
+                            </p>
+                        </section>
+
+                        <section>
+                            <h2 className="text-xl font-bold mb-2">5. Intellectual Property</h2>
+                            <p className="text-gray-600 text-sm leading-relaxed">
+                                All content on this website, including text, images, logos, and designs, is the property of The House of Aradhya and is protected by copyright laws.
+                            </p>
+                        </section>
+
+                        <section>
+                            <h2 className="text-xl font-bold mb-2">6. Contact</h2>
+                            <ul className="text-sm text-gray-700 space-y-1">
+                                <li><strong>Email:</strong> aradhyaclothing09@gmail.com</li>
+                                <li><strong>Phone:</strong> 7602455773</li>
+                            </ul>
+                            <p className="text-xs text-gray-500 mt-4">Last updated: January 2026</p>
+                        </section>
                     </div>
                 );
         }

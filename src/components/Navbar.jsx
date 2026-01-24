@@ -76,6 +76,15 @@ const Navbar = ({ onSearchClick, onCartClick }) => {
 
           {/* Icons */}
           <div className="flex items-center gap-6">
+            {/* Mobile Search Icon */}
+            <button
+              className="md:hidden flex flex-col items-center gap-1 cursor-pointer group"
+              onClick={onSearchClick}
+              aria-label="Search"
+            >
+              <Search className="w-5 h-5 text-gray-700 group-hover:text-black" />
+            </button>
+
             <div
               className="flex flex-col items-center gap-1 cursor-pointer group"
               onClick={() => navigate(isAuthenticated ? '/profile' : '/login')}
