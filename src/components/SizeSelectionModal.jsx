@@ -12,6 +12,37 @@ const getSizeOptions = (item) => {
     return sizeOption?.values ?? [];
 };
 
+const normaliseToken = (value) =>
+    value?.toString().trim().toLowerCase() ?? '';
+
+const findVariantForSize = (item, size) => {
+    if (!item?.variants?.length || !size) return null;
+    const target = normaliseToken(size);
+    return (
+        item.variants.find((variant) =>
+            variant?.selectedOptions?.some(
+                (opt) =>
+                    normaliseToken(opt?.name).includes('size') &&
+                    normaliseToken(opt?.value) === target,
+            ),
+        ) ?? null
+    );
+};
+
+const getSizeAvailability = (item, size) => {
+    const variant = findVariantForSize(item, size);
+    if (!variant) {
+        const fallback = item?.availableForSale ?? true;
+        return { inStock: fallback, lowStock: false, quantity: null };
+    }
+    const qty = Number.isFinite(variant.quantityAvailable)
+        ? variant.quantityAvailable
+        : null;
+    const inStock = Boolean(variant.availableForSale) && (qty == null || qty > 0);
+    const lowStock = inStock && qty != null && qty <= 5;
+    return { inStock, lowStock, quantity: qty };
+};
+
 const SizeSelectionModal = ({ isOpen, onClose, items = [], onConfirm }) => {
     const [selections, setSelections] = useState({});
 
@@ -22,7 +53,10 @@ const SizeSelectionModal = ({ isOpen, onClose, items = [], onConfirm }) => {
             items.forEach(item => {
                 const sizes = getSizeOptions(item);
                 if (sizes.length > 0) {
-                    initial[item.handle] = sizes[0];
+                    const firstInStock =
+                        sizes.find((size) => getSizeAvailability(item, size).inStock) ??
+                        sizes[0];
+                    initial[item.handle] = firstInStock;
                 }
             });
             setSelections(initial);
@@ -59,27 +93,48 @@ const SizeSelectionModal = ({ isOpen, onClose, items = [], onConfirm }) => {
                         const sizes = getSizeOptions(item);
                         const hasSizes = sizes.length > 0;
                         const currentSize = selections[item.handle];
+                        const selectedAvailability = currentSize
+                            ? getSizeAvailability(item, currentSize)
+                            : null;
 
                         return (
                             <div key={item.handle} className="space-y-2">
                                 <p className="font-semibold text-gray-900">{item.title}</p>
                                 {hasSizes ? (
                                     <div className="flex flex-wrap gap-2">
-                                        {sizes.map(size => (
-                                            <button
-                                                key={size}
-                                                onClick={() => handleSelection(item.handle, size)}
-                                                className={`min-w-[40px] h-10 px-3 border rounded text-sm font-medium transition-all ${currentSize === size
+                                        {sizes.map(size => {
+                                            const availability = getSizeAvailability(item, size);
+                                            const isOut = !availability.inStock;
+                                            const isSelected = currentSize === size;
+                                            return (
+                                                <button
+                                                    key={size}
+                                                    onClick={() => handleSelection(item.handle, size)}
+                                                    disabled={isOut}
+                                                    className={`min-w-[40px] h-10 px-3 border rounded text-sm font-medium transition-all ${isSelected
                                                         ? 'border-black bg-black text-white'
                                                         : 'border-gray-200 text-gray-700 hover:border-black'
-                                                    }`}
-                                            >
-                                                {size}
-                                            </button>
-                                        ))}
+                                                        } ${isOut ? 'bg-gray-50 text-gray-400 cursor-not-allowed hover:border-gray-200' : ''}`}
+                                                    title={isOut ? 'Out of stock' : availability.lowStock ? 'Low stock' : 'In stock'}
+                                                >
+                                                    {size}
+                                                </button>
+                                            );
+                                        })}
                                     </div>
                                 ) : (
                                     <p className="text-sm text-gray-500">One Size</p>
+                                )}
+                                {selectedAvailability?.inStock ? (
+                                    selectedAvailability.lowStock ? (
+                                        <p className="text-xs text-orange-600">
+                                            {Number.isFinite(selectedAvailability.quantity)
+                                                ? `Only ${selectedAvailability.quantity} left`
+                                                : 'Low stock'}
+                                        </p>
+                                    ) : null
+                                ) : (
+                                    <p className="text-xs text-rose-600">Out of stock</p>
                                 )}
                             </div>
                         );

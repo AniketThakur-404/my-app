@@ -1111,6 +1111,32 @@ export async function customerQuery(accessToken) {
   return graphql(q, { token: accessToken });
 }
 
+export async function customerQueryLite(accessToken) {
+  const q = `#graphql
+  query($token:String!){
+    customer(customerAccessToken:$token){
+      id
+      firstName
+      lastName
+      email
+      phone
+      displayName
+      defaultAddress {
+        id
+        name
+        phone
+        address1
+        address2
+        city
+        province
+        country
+        zip
+      }
+    }
+  }`;
+  return graphql(q, { token: accessToken });
+}
+
 export async function customerAccessTokenDelete(accessToken) {
   const q = `#graphql
   mutation customerAccessTokenDelete($accessToken: String!) {

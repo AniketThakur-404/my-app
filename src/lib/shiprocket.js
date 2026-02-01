@@ -1,11 +1,9 @@
 // Shiprocket API Integration
 
-// NOTE: in a production environment, you should proxy these requests through your own backend
-// to avoid exposing your API credentials and to handle CORS issues.
-// Shiprocket API does not typically support direct calls from the browser due to CORS.
+// NOTE: These requests are routed through a backend proxy to avoid exposing credentials
+// and to handle CORS issues with the Shiprocket API.
 
 const SHIPROCKET_API_BASE = '/api/shiprocket';
-const SHIPROCKET_TOKEN = 'pxfJ28oeG@G%!DhwjhentXz26^UfvquV';
 
 /**
  * Check serviceability for a pincode
@@ -16,15 +14,9 @@ const SHIPROCKET_TOKEN = 'pxfJ28oeG@G%!DhwjhentXz26^UfvquV';
  */
 export const checkServiceability = async (deliveryPostcode, pickupPostcode = '700001', weight = 0.5, cod = 1) => {
     try {
-        const url = `${SHIPROCKET_API_BASE}/courier/serviceability/?pickup_postcode=${pickupPostcode}&delivery_postcode=${deliveryPostcode}&weight=${weight}&cod=${cod}`;
+        const url = `${SHIPROCKET_API_BASE}/serviceability?pickup_postcode=${pickupPostcode}&delivery_postcode=${deliveryPostcode}&weight=${weight}&cod=${cod}`;
 
-        const response = await fetch(url, {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${SHIPROCKET_TOKEN}`
-            }
-        });
+        const response = await fetch(url, { method: 'GET' });
 
         if (!response.ok) {
             throw new Error('Serviceability API failed');
@@ -47,24 +39,18 @@ export const trackOrder = async ({ awbCode, orderId }) => {
     try {
         let url = '';
         if (awbCode) {
-            url = `${SHIPROCKET_API_BASE}/courier/track/awb/${awbCode}`;
+            url = `${SHIPROCKET_API_BASE}/track?awb=${encodeURIComponent(awbCode)}`;
         } else if (orderId) {
             // Note: Tracking by Order ID typically requires looking up the AWB first via another endpoint
             // or using the specific channel order tracking endpoint.
             // For simplicity, we'll try the generic tracking endpoint if available or assume AWB is passed.
             // Shiprocket tracking by Order ID: /courier/track/order/{order_id}
-            url = `${SHIPROCKET_API_BASE}/courier/track/order/${orderId}`;
+            url = `${SHIPROCKET_API_BASE}/track?order_id=${encodeURIComponent(orderId)}`;
         } else {
             throw new Error('AWB Code or Order ID required');
         }
 
-        const response = await fetch(url, {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${SHIPROCKET_TOKEN}`
-            }
-        });
+        const response = await fetch(url, { method: 'GET' });
 
         if (!response.ok) {
             throw new Error('Tracking API failed');

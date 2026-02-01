@@ -10,9 +10,7 @@ import {
     Loader2,
     Mail,
     Phone,
-    CreditCard,
     Truck,
-    RotateCcw,
     BadgeCheck,
     AlertCircle,
     ArrowUpRight,
@@ -26,13 +24,6 @@ const toneClasses = {
     muted: 'bg-gray-100 text-gray-700 border border-gray-200',
 };
 
-const StatusPill = ({ label, tone = 'muted', Icon = null }) => (
-    <span className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold ${toneClasses[tone] || toneClasses.muted}`}>
-        {Icon ? <Icon className="w-4 h-4" /> : null}
-        <span>{label}</span>
-    </span>
-);
-
 const formatStatusLabel = (status, fallback = 'Processing') => {
     if (!status) return fallback;
     return status
@@ -45,6 +36,7 @@ const formatStatusLabel = (status, fallback = 'Processing') => {
 const ProfilePage = () => {
     const { customer, isAuthenticated, loading, logout } = useAuth();
     const navigate = useNavigate();
+    const orders = customer?.orders?.nodes ?? [];
 
     useEffect(() => {
         if (!loading && !isAuthenticated) {
@@ -69,7 +61,6 @@ const ProfilePage = () => {
         return null;
     }
 
-    const orders = customer.orders?.nodes ?? [];
     const address = customer.defaultAddress;
     const currencyHint = orders[0]?.totalPriceV2?.currencyCode || orders[0]?.totalPrice?.currencyCode;
 
@@ -110,34 +101,6 @@ const ProfilePage = () => {
         return { label: formatStatusLabel(status, 'Processing'), tone: 'muted', Icon: Truck };
     };
 
-    const getPaymentBadge = (status) => {
-        const normalized = (status || '').toLowerCase();
-        if (normalized === 'paid' || normalized === 'partially_paid') {
-            return { label: 'Paid', tone: 'success', Icon: CreditCard };
-        }
-        if (normalized.includes('refunded')) {
-            return { label: formatStatusLabel(status, 'Refunded'), tone: 'info', Icon: RotateCcw };
-        }
-        if (normalized === 'pending' || normalized === 'authorized') {
-            return { label: 'Payment pending', tone: 'warning', Icon: CreditCard };
-        }
-        return { label: formatStatusLabel(status, 'Payment'), tone: 'muted', Icon: CreditCard };
-    };
-
-    const getRefundBadge = (order) => {
-        const amount = Number(order?.totalRefundedV2?.amount ?? order?.totalRefunded?.amount ?? 0);
-        const currency = order?.totalRefundedV2?.currencyCode ?? order?.totalRefunded?.currencyCode ?? currencyHint;
-        const financial = (order.financialStatus || '').toLowerCase();
-
-        if (amount > 0) {
-            return { label: `Refunded ${formatMoney(amount, currency)}`, tone: 'success', Icon: RotateCcw };
-        }
-        if (financial.includes('refunded')) {
-            return { label: 'Refund in progress', tone: 'warning', Icon: RotateCcw };
-        }
-        return { label: 'No refund issued', tone: 'muted', Icon: RotateCcw };
-    };
-
     const formatDate = (date) => {
         if (!date) return '';
         const parsed = new Date(date);
@@ -149,8 +112,6 @@ const ProfilePage = () => {
         const items = order.lineItems?.nodes ?? [];
         const itemCount = items.reduce((sum, item) => sum + Number(item?.quantity ?? 0), 0);
         const fulfillment = getFulfillmentBadge(order.fulfillmentStatus);
-        const payment = getPaymentBadge(order.financialStatus);
-        const refund = getRefundBadge(order);
         const orderTotal = formatMoney(
             order?.totalPriceV2?.amount ?? order?.totalPrice?.amount ?? 0,
             order?.totalPriceV2?.currencyCode ?? order?.totalPrice?.currencyCode
@@ -159,21 +120,31 @@ const ProfilePage = () => {
         const trackingInfo = order?.successfulFulfillments?.[0]?.trackingInfo?.[0];
         const trackHref = trackingInfo?.url || order.statusUrl || null;
 
+        const normalizedStatus = (order.fulfillmentStatus || '').toLowerCase();
+        const isDelivered = normalizedStatus === 'fulfilled';
+        const isCancelled = normalizedStatus === 'cancelled' || normalizedStatus === 'canceled';
+        const primaryAction = isDelivered ? 'Return' : 'Cancel';
+        const secondaryAction = isDelivered ? 'Exchange' : 'Replace';
+        const actionHref = '/cancel-refund-exchange';
+
         return (
             <div key={order.id} className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow">
-                <div className="flex flex-wrap items-start justify-between gap-4 pb-4 border-b border-gray-100">
-                    <div>
-                        <p className="text-xs uppercase tracking-wide text-gray-500">Order #{order.orderNumber}</p>
-                        <div className="flex items-center gap-2">
-                            <p className="text-xl font-extrabold text-gray-900">{orderTotal}</p>
-                            {processedDate ? <span className="text-sm text-gray-500">• {processedDate}</span> : null}
+                <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-gray-100">
+                    <div className="flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${toneClasses[fulfillment.tone] || toneClasses.muted}`}>
+                            {fulfillment.Icon ? <fulfillment.Icon className="w-5 h-5" /> : null}
                         </div>
-                        <p className="text-sm text-gray-500">{itemCount} item{itemCount === 1 ? '' : 's'}</p>
+                        <div>
+                            <p className="text-sm font-semibold text-gray-900">{fulfillment.label}</p>
+                            {processedDate ? (
+                                <p className="text-xs text-gray-500">{isDelivered ? 'Delivered on ' : 'Placed on '}{processedDate}</p>
+                            ) : null}
+                        </div>
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                        <StatusPill {...fulfillment} />
-                        <StatusPill {...payment} />
-                        <StatusPill {...refund} />
+                    <div className="text-right">
+                        <p className="text-xs uppercase tracking-wide text-gray-500">Order #{order.orderNumber}</p>
+                        <p className="text-lg font-extrabold text-gray-900">{orderTotal}</p>
+                        <p className="text-xs text-gray-500">{itemCount} item{itemCount === 1 ? '' : 's'}</p>
                     </div>
                 </div>
 
@@ -188,13 +159,13 @@ const ProfilePage = () => {
                                 />
                             ) : (
                                 <div className="w-12 h-12 rounded-md bg-gray-100 flex items-center justify-center text-gray-400 text-xs font-semibold">
-                                    {item.title?.slice(0, 2)?.toUpperCase() || '•'}
+                                    {item.title?.slice(0, 2)?.toUpperCase() || '-'}
                                 </div>
                             )}
                             <div className="flex-1 min-w-0">
                                 <p className="text-sm font-semibold text-gray-900 truncate">{item.title}</p>
                                 <p className="text-xs text-gray-500">
-                                    {item.variant?.title ? `${item.variant.title} • ` : ''}Qty x{item.quantity}
+                                    {item.variant?.title ? `${item.variant.title} - ` : ''}Qty x{item.quantity}
                                 </p>
                             </div>
                         </div>
@@ -204,24 +175,43 @@ const ProfilePage = () => {
                     ) : null}
                 </div>
 
-                <div className="pt-3 border-t border-gray-100 flex flex-wrap items-center justify-between gap-3">
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                        <RotateCcw className="w-4 h-4 text-gray-500" />
-                        <span>{refund.label}</span>
-                    </div>
-                    <div className="flex gap-2">
+
+                <div className="pt-3 border-t border-gray-100 flex flex-col gap-3">
+                    <div className="flex flex-wrap gap-2">
+                        {!isCancelled ? (
+                            <Link
+                                to={actionHref}
+                                className="flex-1 px-4 py-2 rounded-full text-xs font-semibold border border-gray-300 text-gray-700 hover:border-gray-900 hover:text-gray-900 transition-colors text-center"
+                            >
+                                {primaryAction}
+                            </Link>
+                        ) : null}
+                        {!isCancelled ? (
+                            <Link
+                                to={actionHref}
+                                className="flex-1 px-4 py-2 rounded-full text-xs font-semibold border border-gray-300 text-gray-700 hover:border-gray-900 hover:text-gray-900 transition-colors text-center"
+                            >
+                                {secondaryAction}
+                            </Link>
+                        ) : null}
                         {trackHref ? (
                             <a
                                 href={trackHref}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold bg-black text-white hover:bg-gray-900 transition-colors"
+                                className="flex-1 px-4 py-2 rounded-full text-xs font-semibold border border-gray-300 text-gray-700 hover:border-gray-900 hover:text-gray-900 transition-colors text-center"
                             >
-                                Track / Manage
-                                <ArrowUpRight className="w-4 h-4" />
+                                Track
                             </a>
-                        ) : null}
+                        ) : (
+                            <span className="flex-1 px-4 py-2 rounded-full text-xs font-semibold border border-gray-200 text-gray-400 text-center cursor-not-allowed">
+                                Track
+                            </span>
+                        )}
                     </div>
+                    {isCancelled ? (
+                        <p className="text-xs text-gray-500">This order was cancelled.</p>
+                    ) : null}
                 </div>
             </div>
         );

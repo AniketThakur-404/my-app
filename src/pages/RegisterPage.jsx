@@ -26,8 +26,11 @@ const RegisterPage = () => {
         setSuccessMessage('');
 
         const { firstName, lastName, email, password, confirmPassword } = formData;
+        const normalizedEmail = email.trim();
+        const normalizedFirst = firstName.trim();
+        const normalizedLast = lastName.trim();
 
-        if (!firstName || !lastName || !email || !password) {
+        if (!normalizedFirst || !normalizedLast || !normalizedEmail || !password) {
             setLocalError('Please fill in all fields');
             return;
         }
@@ -42,7 +45,12 @@ const RegisterPage = () => {
             return;
         }
 
-        const result = await register({ firstName, lastName, email, password });
+        const result = await register({
+            firstName: normalizedFirst,
+            lastName: normalizedLast,
+            email: normalizedEmail,
+            password,
+        });
         if (result.success) {
             setFormData({
                 firstName: '',
@@ -51,7 +59,11 @@ const RegisterPage = () => {
                 password: '',
                 confirmPassword: '',
             });
-            setSuccessMessage('Account created. Shopify will email you a verification link. Verify it, then sign in.');
+            setSuccessMessage(
+                result.verificationSent
+                    ? 'Account created. We sent a verification email. Verify it, then sign in.'
+                    : 'Account created. Please use "Resend verification" on the login page to get the email link.',
+            );
         }
     };
 

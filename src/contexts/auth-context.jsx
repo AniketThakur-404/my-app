@@ -5,6 +5,7 @@ import {
     customerAccessTokenDelete,
     customerCreate,
     customerQuery,
+    customerQueryLite,
 } from '../lib/shopify';
 
 const AuthContext = createContext(null);
@@ -64,11 +65,23 @@ export function AuthProvider({ children }) {
             setLoading(false);
             return customerData;
         } catch (e) {
-            console.error('Failed to fetch customer', e);
-            clearToken();
-            setCustomer(null);
-            setLoading(false);
-            return null;
+            console.warn('Primary customer query failed, attempting fallback', e);
+            try {
+                const fallback = await customerQueryLite(token);
+                const customerData = fallback?.customer ?? null;
+                if (!customerData) {
+                    clearToken();
+                }
+                setCustomer(customerData);
+                setLoading(false);
+                return customerData;
+            } catch (fallbackError) {
+                console.error('Failed to fetch customer', fallbackError);
+                clearToken();
+                setCustomer(null);
+                setLoading(false);
+                return null;
+            }
         }
     }, [clearToken]);
 
@@ -86,7 +99,8 @@ export function AuthProvider({ children }) {
         setError(null);
         setLoading(true);
         try {
-            const result = await customerAccessTokenCreate({ email, password });
+            const normalizedEmail = String(email ?? '').trim();
+            const result = await customerAccessTokenCreate({ email: normalizedEmail, password });
             const tokenData = result?.customerAccessTokenCreate?.customerAccessToken;
             const errors = result?.customerAccessTokenCreate?.userErrors ?? [];
 
@@ -109,7 +123,12 @@ export function AuthProvider({ children }) {
             }
 
             storeToken(tokenData.accessToken, tokenData.expiresAt);
-            await fetchCustomer(tokenData.accessToken);
+            const customerData = await fetchCustomer(tokenData.accessToken);
+            if (!customerData) {
+                const msg = 'Unable to load your account details. Please try again.';
+                setError(msg);
+                return { success: false, error: msg };
+            }
             return { success: true };
         } catch (e) {
             const msg = e?.message || 'Login failed';
@@ -123,7 +142,8 @@ export function AuthProvider({ children }) {
         setError(null);
         setLoading(true);
         try {
-            const result = await customerCreate({ email, password, firstName, lastName });
+            const normalizedEmail = String(email ?? '').trim();
+            const result = await customerCreate({ email: normalizedEmail, password, firstName, lastName });
             const errors = result?.customerCreate?.userErrors ?? [];
 
             if (errors.length > 0) {
@@ -133,8 +153,20 @@ export function AuthProvider({ children }) {
                 return { success: false, error: msg };
             }
 
+            let verificationSent = false;
+            try {
+                const response = await fetch('/api/resend-verification', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: normalizedEmail }),
+                });
+                verificationSent = response.ok;
+            } catch {
+                verificationSent = false;
+            }
+
             setLoading(false);
-            return { success: true, verificationSent: true };
+            return { success: true, verificationSent };
         } catch (e) {
             const msg = e?.message || 'Registration failed';
             setError(msg);

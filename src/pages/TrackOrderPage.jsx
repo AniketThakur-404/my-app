@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { Package, Truck, CheckCircle, Search, MapPin, Clock } from 'lucide-react';
-import { trackOrder } from '../lib/shiprocket';
+import { Package, Truck, CheckCircle, Search, Clock } from 'lucide-react';
 
 const TrackOrderPage = () => {
     const [orderId, setOrderId] = useState('');
@@ -8,6 +7,7 @@ const TrackOrderPage = () => {
     const [loading, setLoading] = useState(false);
     const [trackingResult, setTrackingResult] = useState(null);
     const [error, setError] = useState('');
+    const isDev = import.meta.env.DEV;
 
     const handleSearch = async (e) => {
         e.preventDefault();
@@ -15,27 +15,51 @@ const TrackOrderPage = () => {
         setTrackingResult(null);
         setLoading(true);
 
-        if (!orderId) {
-            setError('Please enter Order ID');
+        const normalizedOrderId = orderId.trim();
+        const contact = email.trim();
+        const isEmail = contact.includes('@');
+
+        if (!normalizedOrderId || !contact) {
+            setError('Please enter your order ID and the email or phone used for the order.');
             setLoading(false);
             return;
         }
 
         try {
-            // Shiprocket tracking
-            const data = await trackOrder({ orderId: orderId });
+            const payload = {
+                orderId: normalizedOrderId || undefined,
+            };
+            if (contact) {
+                if (isEmail) {
+                    payload.email = contact.toLowerCase();
+                } else {
+                    payload.phone = contact;
+                }
+            }
 
-            // NOTE: Mapping logic depends on actual Shiprocket API response structure.
-            // Using safegaurds for demo purposes.
-            // Response usually has data.tracking_data.shipment_track or similar
+            const response = await fetch('/api/track-order', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
 
-            const trackData = data?.tracking_data || {};
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                throw new Error(data?.error || 'Unable to fetch tracking details.');
+            }
+
+            const shiprocketData = data?.tracking || {};
+            const trackData = shiprocketData?.tracking_data || {};
             const shipment = trackData.shipment_track?.[0] || {};
             const activities = trackData.shipment_track_activities || [];
+            const order = data?.order || {};
 
             // If API returns no data for ID
             if (!shipment.current_status && !activities.length) {
-                throw new Error('No tracking info found');
+                const fallbackNumbers = data?.shopifyTracking?.trackingNumbers || [];
+                if (fallbackNumbers.length === 0) {
+                    throw new Error('No tracking info found');
+                }
             }
 
             const timeline = activities.map(act => ({
@@ -50,25 +74,49 @@ const TrackOrderPage = () => {
                 timeline[0].current = true;
             }
 
-            const currentStatus = shipment.current_status || timeline[0]?.status || 'Unknown';
+            const currentStatus = shipment.current_status || timeline[0]?.status || order?.status || 'Unknown';
+            const trackingNumber =
+                shipment.awb_code ||
+                data?.shopifyTracking?.trackingNumbers?.[0] ||
+                '';
+            const trackingUrl =
+                shipment.tracking_url ||
+                shipment.trackingUrl ||
+                trackData.track_url ||
+                data?.shopifyTracking?.trackingUrls?.[0] ||
+                '';
+            const processedDate = order?.processedAt
+                ? new Date(order.processedAt).toLocaleDateString('en-IN', {
+                    day: 'numeric',
+                    month: 'short',
+                    year: 'numeric',
+                })
+                : '';
 
             setTrackingResult({
-                id: orderId,
+                id: order?.name || normalizedOrderId || 'Order',
                 status: currentStatus,
                 estimatedDelivery: shipment.etd || 'Pending',
-                timeline: timeline.length ? timeline : [{ status: currentStatus, date: 'Today', current: true, completed: true }],
-                courier: shipment.courier_name || 'Courier',
-                trackingNumber: shipment.awb_code || ''
+                timeline: timeline.length ? timeline : [{
+                    status: currentStatus,
+                    date: processedDate || 'Today',
+                    current: true,
+                    completed: true,
+                }],
+                courier: shipment.courier_name || data?.shopifyTracking?.trackingCompanies?.[0] || 'Courier',
+                trackingNumber,
+                trackingUrl,
+                processedDate,
             });
 
         } catch (err) {
             console.error('Tracking Error', err);
             // Fallback for demo if API fails (so user sees something during review if key is invalid)
             // Remove this block in strict production
-            if (process.env.NODE_ENV === 'development') {
+            if (isDev) {
                 console.warn('Falling back to mock data for dev due to API error');
                 setTrackingResult({
-                    id: orderId,
+                    id: normalizedOrderId || 'Order',
                     status: 'In Transit',
                     estimatedDelivery: 'Jan 28, 2026',
                     timeline: [
@@ -79,7 +127,7 @@ const TrackOrderPage = () => {
                     trackingNumber: 'SR-DEMO'
                 });
             } else {
-                setError('Could not find tracking details. Please check the ID.');
+                setError('Could not find tracking details. Please check the order ID and contact info.');
             }
         } finally {
             setLoading(false);
@@ -98,100 +146,167 @@ const TrackOrderPage = () => {
     };
 
     return (
-        <div className="pt-24 pb-16 min-h-screen site-shell bg-gray-50">
-            <div className="max-w-3xl mx-auto">
-                <div className="text-center mb-10">
-                    <h1 className="text-3xl font-extrabold text-gray-900 mb-2">Track Your Order</h1>
-                    <p className="text-gray-600">Enter your order details to see current status</p>
-                </div>
-
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 md:p-8 mb-8">
-                    <form onSubmit={handleSearch} className="grid md:grid-cols-3 gap-4">
-                        <div className="md:col-span-1">
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Order ID</label>
-                            <div className="relative">
-                                <Package className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                                <input
-                                    type="text"
-                                    value={orderId}
-                                    onChange={(e) => setOrderId(e.target.value)}
-                                    placeholder="#ORD-1234"
-                                    className="w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-black transition-colors"
-                                />
+        <div className="pt-20 pb-16 min-h-screen site-shell bg-gradient-to-b from-[#faf7f2] via-white to-[#f6f1e9]">
+            <div className="max-w-6xl mx-auto px-4">
+                <div className="grid lg:grid-cols-[1.05fr_0.95fr] gap-10 items-center mb-10">
+                    <div>
+                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#efe6d7] text-[#6b4f2e] text-xs font-semibold tracking-[0.2em] uppercase">
+                            Mantra Tracking
+                        </div>
+                        <h1 className="mt-4 text-3xl sm:text-4xl lg:text-5xl font-extrabold text-[#1f140a] leading-tight">
+                            Your order, your rhythm.
+                            <span className="block text-[#6b4f2e]">Track it with calm clarity.</span>
+                        </h1>
+                        <p className="mt-4 text-[#5b5146] max-w-xl">
+                            Enter your order ID and the email or phone used at checkout. We&apos;ll pull updates from
+                            Shopify and Shiprocket and translate them into a simple timeline.
+                        </p>
+                        <div className="mt-6 flex flex-wrap gap-3">
+                            <div className="px-4 py-2 rounded-full bg-white border border-[#e7dccb] text-sm font-semibold text-[#3e2b17]">
+                                Step 1: Enter details
+                            </div>
+                            <div className="px-4 py-2 rounded-full bg-white border border-[#e7dccb] text-sm font-semibold text-[#3e2b17]">
+                                Step 2: We locate shipment
+                            </div>
+                            <div className="px-4 py-2 rounded-full bg-white border border-[#e7dccb] text-sm font-semibold text-[#3e2b17]">
+                                Step 3: View the journey
                             </div>
                         </div>
-                        <div className="md:col-span-1">
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Email / Phone</label>
-                            <input
-                                type="text"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                placeholder="Email used for order"
-                                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-black transition-colors"
-                            />
+                    </div>
+
+                    <div className="relative">
+                        <div className="absolute -inset-6 rounded-[32px] bg-gradient-to-br from-[#f0e2cd] via-[#f7f0e4] to-transparent blur-2xl opacity-70"></div>
+                        <div className="relative bg-white border border-[#ecdcc9] rounded-3xl p-6 shadow-[0_20px_60px_-35px_rgba(38,24,8,0.6)]">
+                            <div className="flex items-center justify-between mb-6">
+                                <div>
+                                    <p className="text-xs uppercase tracking-[0.3em] text-[#9c7b55] font-semibold">Track Order</p>
+                                    <p className="text-lg font-bold text-[#2b1c0e]">Find your parcel</p>
+                                </div>
+                                <div className="w-10 h-10 rounded-full bg-[#f1e4d1] flex items-center justify-center text-[#6b4f2e]">
+                                    <Search className="w-5 h-5" />
+                                </div>
+                            </div>
+
+                            <form onSubmit={handleSearch} className="space-y-4">
+                                <div>
+                                    <label className="block text-xs uppercase tracking-[0.2em] text-[#8f7151] font-semibold mb-2">Order ID</label>
+                                    <div className="relative">
+                                        <Package className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#b29473]" />
+                                        <input
+                                            type="text"
+                                            value={orderId}
+                                            onChange={(e) => setOrderId(e.target.value)}
+                                            placeholder="#ORD-1234"
+                                            className="w-full pl-10 pr-3 py-3 border border-[#e9dbc7] rounded-xl focus:ring-2 focus:ring-[#6b4f2e] focus:border-[#6b4f2e] transition-colors bg-[#fffaf4]"
+                                        />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-xs uppercase tracking-[0.2em] text-[#8f7151] font-semibold mb-2">Email or Phone</label>
+                                    <input
+                                        type="text"
+                                        value={email}
+                                        onChange={(e) => setEmail(e.target.value)}
+                                        placeholder="Email or phone used for order"
+                                        className="w-full px-3 py-3 border border-[#e9dbc7] rounded-xl focus:ring-2 focus:ring-[#6b4f2e] focus:border-[#6b4f2e] transition-colors bg-[#fffaf4]"
+                                    />
+                                </div>
+                                <button
+                                    type="submit"
+                                    disabled={loading}
+                                    className="w-full bg-[#1f140a] text-white py-3 rounded-xl font-bold hover:bg-[#2c1e12] disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+                                >
+                                    {loading ? 'Searching...' : (
+                                        <>
+                                            <Search className="w-4 h-4" />
+                                            Track Now
+                                        </>
+                                    )}
+                                </button>
+                            </form>
+                            {error && <p className="text-red-600 text-sm mt-3">{error}</p>}
                         </div>
-                        <div className="md:col-span-1 flex items-end">
-                            <button
-                                type="submit"
-                                disabled={loading}
-                                className="w-full bg-black text-white py-2.5 rounded-lg font-bold hover:bg-gray-800 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
-                            >
-                                {loading ? 'Searching...' : (
-                                    <>
-                                        <Search className="w-4 h-4" />
-                                        Track
-                                    </>
-                                )}
-                            </button>
-                        </div>
-                    </form>
-                    {error && <p className="text-red-600 text-sm mt-3">{error}</p>}
+                    </div>
                 </div>
 
                 {trackingResult && (
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 md:p-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 pb-6 border-b border-gray-100">
-                            <div>
-                                <h2 className="text-xl font-bold text-gray-900">Order {trackingResult.id}</h2>
-                                <p className="text-sm text-gray-500 mt-1">
-                                    Via {trackingResult.courier} | {trackingResult.trackingNumber}
-                                </p>
+                    <div className="grid lg:grid-cols-[1fr_0.9fr] gap-8">
+                        <div className="bg-white rounded-3xl shadow-[0_20px_60px_-35px_rgba(38,24,8,0.6)] border border-[#ecdcc9] p-6 md:p-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 pb-6 border-b border-[#f2e7d8]">
+                                <div>
+                                    <p className="text-xs uppercase tracking-[0.25em] text-[#9c7b55] font-semibold">Order</p>
+                                    <h2 className="text-2xl font-bold text-[#1f140a]">{trackingResult.id}</h2>
+                                    <p className="text-sm text-[#8b7866] mt-1">
+                                        Via {trackingResult.courier} {trackingResult.trackingNumber ? `| ${trackingResult.trackingNumber}` : ''}
+                                    </p>
+                                    {trackingResult.processedDate ? (
+                                        <p className="text-xs text-[#9b8a79] mt-1">Placed on {trackingResult.processedDate}</p>
+                                    ) : null}
+                                </div>
+                                <div className="mt-4 md:mt-0 text-left md:text-right">
+                                    <p className="text-xs uppercase tracking-[0.25em] text-[#9c7b55] font-semibold">Status</p>
+                                    <p className="text-lg font-bold text-[#2f6f44]">{trackingResult.status}</p>
+                                    {trackingResult.trackingUrl ? (
+                                        <a
+                                            href={trackingResult.trackingUrl}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="mt-3 inline-flex items-center justify-center px-4 py-2 rounded-full text-xs font-semibold bg-[#1f140a] text-white hover:bg-[#2c1e12] transition-colors"
+                                        >
+                                            Open tracking
+                                        </a>
+                                    ) : null}
+                                </div>
                             </div>
-                            <div className="mt-4 md:mt-0 text-right">
-                                <p className="text-sm text-gray-500">Status</p>
-                                <p className="text-lg font-bold text-green-600">{trackingResult.status}</p>
+
+                            <div className="relative pl-6">
+                                <div className="absolute left-2 top-2 bottom-2 w-0.5 bg-[#e7dccb]"></div>
+
+                                <div className="space-y-8">
+                                    {trackingResult.timeline.map((step, index) => (
+                                        <div key={index} className="relative flex items-start gap-6">
+                                            <div className={`
+                                                relative z-10 w-14 h-14 flex-shrink-0 rounded-2xl flex items-center justify-center border-2
+                                                ${step.completed
+                                                    ? 'bg-[#1f140a] border-[#1f140a] text-white'
+                                                    : step.current
+                                                        ? 'bg-white border-[#1f140a] text-[#1f140a]'
+                                                        : 'bg-white border-[#e0d3c2] text-[#c0ac94]'
+                                                }
+                                            `}>
+                                                {getIconForStatus(step.status)}
+                                            </div>
+                                            <div className="flex-1">
+                                                <h3 className={`font-bold ${step.completed || step.current ? 'text-[#1f140a]' : 'text-[#b2a08f]'}`}>
+                                                    {step.status}
+                                                </h3>
+                                                <p className="text-sm text-[#8b7866]">{step.date}</p>
+                                            </div>
+                                            {step.completed && (
+                                                <CheckCircle className="w-6 h-6 text-[#2f6f44]" />
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         </div>
 
-                        <div className="relative">
-                            {/* Vertical line connecting dots */}
-                            <div className="absolute left-8 top-4 bottom-4 w-0.5 bg-gray-200"></div>
-
-                            <div className="space-y-8">
-                                {trackingResult.timeline.map((step, index) => (
-                                    <div key={index} className="relative flex items-center gap-6">
-                                        <div className={`
-                                            relative z-10 w-16 h-16 flex-shrink-0 rounded-full flex items-center justify-center border-4 
-                                            ${step.completed
-                                                ? 'bg-black border-black text-white'
-                                                : step.current
-                                                    ? 'bg-white border-black text-black'
-                                                    : 'bg-white border-gray-200 text-gray-300'
-                                            }
-                                        `}>
-                                            {getIconForStatus(step.status)}
-                                        </div>
-                                        <div className="flex-1">
-                                            <h3 className={`font-bold ${step.completed || step.current ? 'text-gray-900' : 'text-gray-400'}`}>
-                                                {step.status}
-                                            </h3>
-                                            <p className="text-sm text-gray-500">{step.date}</p>
-                                        </div>
-                                        {step.completed && (
-                                            <CheckCircle className="w-6 h-6 text-green-500" />
-                                        )}
-                                    </div>
-                                ))}
+                        <div className="bg-[#1f140a] text-white rounded-3xl p-6 md:p-8 shadow-[0_20px_60px_-35px_rgba(38,24,8,0.6)]">
+                            <p className="text-xs uppercase tracking-[0.3em] text-[#d1b894] font-semibold">Mantra</p>
+                            <h3 className="mt-3 text-2xl font-bold">"Move with the parcel. Breathe with the updates."</h3>
+                            <p className="mt-4 text-[#e7dccb]">
+                                We read your latest updates, then translate them into a steady rhythm - so tracking feels
+                                calm, not chaotic.
+                            </p>
+                            <div className="mt-6 grid gap-4">
+                                <div className="rounded-2xl bg-[#2c1e12] p-4">
+                                    <p className="text-sm text-[#d9c6ad]">Estimated delivery</p>
+                                    <p className="text-lg font-bold">{trackingResult.estimatedDelivery}</p>
+                                </div>
+                                <div className="rounded-2xl bg-[#2c1e12] p-4">
+                                    <p className="text-sm text-[#d9c6ad]">Courier</p>
+                                    <p className="text-lg font-bold">{trackingResult.courier}</p>
+                                </div>
                             </div>
                         </div>
                     </div>

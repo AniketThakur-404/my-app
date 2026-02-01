@@ -13,14 +13,28 @@ const normalizeForMatch = (value) => {
   return normalized.replace(/[^a-z0-9]+/g, ' ').trim();
 };
 
+const formatLabel = (value) => {
+  if (!value) return '';
+  return value
+    .toString()
+    .replace(/[-_]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+};
+
 const tokenize = (value) => normalizeForMatch(value).split(' ').filter(Boolean);
+
+const uniqueTokens = (values) => Array.from(new Set(values.filter(Boolean)));
 
 const matchesToken = (source, targetTokens) => {
   if (!source || targetTokens.length === 0) return false;
   const sourceTokens = tokenize(source);
   if (sourceTokens.length === 0) return false;
   if (targetTokens.length === 1) {
-    return sourceTokens.includes(targetTokens[0]);
+    const target = targetTokens[0];
+    if (sourceTokens.includes(target)) return true;
+    return sourceTokens.some((token) => token.includes(target));
   }
   if (targetTokens.every((token) => sourceTokens.includes(token))) return true;
   const collapsedSource = sourceTokens.join('');
@@ -42,14 +56,77 @@ const productMatchesFilter = (product, filterToken) => {
     ...collections.map((collection) => collection?.title),
   ].filter(Boolean);
 
-  return candidates.some((candidate) => matchesToken(candidate, targetTokens));
+  if (candidates.some((candidate) => matchesToken(candidate, targetTokens))) return true;
+
+  if (targetTokens.length > 1) {
+    const candidateTokens = uniqueTokens(candidates.flatMap((candidate) => tokenize(candidate)));
+    if (!candidateTokens.length) return false;
+    return targetTokens.every((token) =>
+      candidateTokens.some((candidateToken) => candidateToken === token || candidateToken.includes(token)),
+    );
+  }
+
+  return false;
+};
+
+const OCCASION_SYNONYMS = {
+  puja: ['puja', 'festive', 'festival'],
+  festive: ['festive', 'puja', 'festival'],
+};
+
+const buildOccasionTokens = (value) => {
+  const normalized = normalizeForMatch(value);
+  if (!normalized || normalized === 'all') return [];
+  const tokens = tokenize(normalized);
+  const base = tokens[0] || normalized;
+  const synonyms = OCCASION_SYNONYMS[base] ?? [];
+  if (tokens.length <= 1) return uniqueTokens([normalized, ...synonyms]);
+  return uniqueTokens([normalized, base, ...synonyms]);
+};
+
+const SKINTONE_GROUPS = [
+  { id: 'fair', label: 'Fair Skin', tokens: ['fair skin', 'fair'] },
+  { id: 'neutral', label: 'Neutral Skin', tokens: ['neutral skin', 'neutral', 'natural skin', 'natural'] },
+  { id: 'dark', label: 'Dark Skin', tokens: ['dark skin', 'dark'] },
+];
+
+const sortProducts = (items, sortBy) => {
+  const sorted = [...items];
+  if (sortBy === 'price_low') {
+    sorted.sort((a, b) => (a?.price ?? 0) - (b?.price ?? 0));
+  } else if (sortBy === 'price_high') {
+    sorted.sort((a, b) => (b?.price ?? 0) - (a?.price ?? 0));
+  } else if (sortBy === 'new') {
+    sorted.sort((a, b) => String(b?.id || '').localeCompare(String(a?.id || '')));
+  }
+  return sorted;
 };
 
 const AllProductsPage = ({ initialCategory = 'all' }) => {
   const [searchParams, setSearchParams] = useSearchParams();
   const activeCategory = searchParams.get('category') ?? initialCategory;
+  const rawSkintone = searchParams.get('skintone');
+  const rawOccasion = searchParams.get('occasion');
   const skintoneFilter = normalizeForMatch(searchParams.get('skintone'));
   const occasionFilter = normalizeForMatch(searchParams.get('occasion'));
+  const hasOccasionFilter = occasionFilter && occasionFilter !== 'all';
+
+  const normalizedCategory = normalizeForMatch(activeCategory);
+  const skintoneFromCategory = SKINTONE_GROUPS.find((group) =>
+    group.tokens.some((token) => matchesToken(normalizedCategory, tokenize(token))),
+  );
+  const isSkintoneCategory = Boolean(skintoneFromCategory);
+  const hasExplicitSkintone = skintoneFilter && skintoneFilter !== 'all';
+  const hasSkintoneFilter = hasExplicitSkintone || isSkintoneCategory;
+  const skintoneGroupFromFilter = hasExplicitSkintone
+    ? SKINTONE_GROUPS.find((group) =>
+      group.tokens.some((token) => normalizeForMatch(token) === skintoneFilter),
+    )
+    : null;
+  const skintoneTokens = hasExplicitSkintone
+    ? (skintoneGroupFromFilter ? skintoneGroupFromFilter.tokens : [skintoneFilter])
+    : (skintoneFromCategory ? skintoneFromCategory.tokens : []);
+  const occasionTokens = buildOccasionTokens(occasionFilter);
 
   const { products: catalogProducts, ensureCollectionProducts } = useCatalog();
   const [products, setProducts] = useState([]);
@@ -62,8 +139,8 @@ const AllProductsPage = ({ initialCategory = 'all' }) => {
     setLoading(true);
 
     async function loadProducts() {
-      if (activeCategory === 'all') {
-        // If 'all', use the default catalog products
+      if (activeCategory === 'all' || isSkintoneCategory) {
+        // If 'all' or skintone category, use the default catalog products (tag filtering)
         if (catalogProducts?.length) {
           if (!cancelled) {
             setProducts(catalogProducts);
@@ -94,44 +171,62 @@ const AllProductsPage = ({ initialCategory = 'all' }) => {
     loadProducts();
 
     return () => { cancelled = true; };
-  }, [activeCategory, catalogProducts, ensureCollectionProducts]);
+  }, [activeCategory, catalogProducts, ensureCollectionProducts, isSkintoneCategory]);
 
   // Update products when catalogProducts changes if we are in 'all' mode
   useEffect(() => {
-    if (activeCategory === 'all' && catalogProducts?.length) {
+    if ((activeCategory === 'all' || isSkintoneCategory) && catalogProducts?.length) {
       setProducts(catalogProducts);
       setLoading(false);
     }
-  }, [catalogProducts, activeCategory]);
+  }, [catalogProducts, activeCategory, isSkintoneCategory]);
 
 
-  const sortedProducts = useMemo(() => {
-    const applySkintone = skintoneFilter && skintoneFilter !== 'all';
-    const applyOccasion = occasionFilter && occasionFilter !== 'all';
+  const filteredProducts = useMemo(() => {
+    const applySkintone = (hasExplicitSkintone || isSkintoneCategory) && skintoneTokens.length > 0;
+    const applyOccasion = occasionTokens.length > 0;
     let filtered = products;
     if (applySkintone || applyOccasion) {
       filtered = products.filter((product) => {
         const matchesSkintone = applySkintone
-          ? productMatchesFilter(product, skintoneFilter)
+          ? skintoneTokens.some((token) => productMatchesFilter(product, token))
           : true;
         const matchesOccasion = applyOccasion
-          ? productMatchesFilter(product, occasionFilter)
+          ? occasionTokens.some((token) => productMatchesFilter(product, token))
           : true;
         return matchesSkintone && matchesOccasion;
       });
     }
+    return filtered;
+  }, [products, hasExplicitSkintone, isSkintoneCategory, skintoneTokens, occasionTokens]);
 
-    let sorted = [...filtered];
-    if (sortBy === 'price_low') {
-      sorted.sort((a, b) => (a?.price ?? 0) - (b?.price ?? 0));
-    } else if (sortBy === 'price_high') {
-      sorted.sort((a, b) => (b?.price ?? 0) - (a?.price ?? 0));
-    } else if (sortBy === 'new') {
-      // Mock sort for newness if date not available, or use id
-      sorted.sort((a, b) => String(b?.id || '').localeCompare(String(a?.id || '')));
-    }
-    return sorted.map(toProductCard).filter(Boolean);
-  }, [products, sortBy, skintoneFilter, occasionFilter]);
+  const sortedProducts = useMemo(
+    () => sortProducts(filteredProducts, sortBy).map(toProductCard).filter(Boolean),
+    [filteredProducts, sortBy],
+  );
+
+  const shouldGroupBySkintone = hasOccasionFilter && !hasSkintoneFilter && activeCategory === 'all';
+  const groupedProducts = useMemo(() => {
+    if (!shouldGroupBySkintone) return [];
+    return SKINTONE_GROUPS.map((group) => {
+      const toneProducts = filteredProducts.filter((product) =>
+        group.tokens.some((token) => productMatchesFilter(product, token)),
+      );
+      return {
+        ...group,
+        products: sortProducts(toneProducts, sortBy).map(toProductCard).filter(Boolean),
+      };
+    }).filter((group) => group.products.length > 0);
+  }, [filteredProducts, shouldGroupBySkintone, sortBy]);
+
+  const totalItems = filteredProducts.length;
+  const displaySkintone = skintoneFilter
+    ? formatLabel(rawSkintone || skintoneFilter)
+    : (skintoneFromCategory?.label || '');
+  const displayOccasion = occasionFilter ? formatLabel(rawOccasion || occasionFilter) : '';
+  const pageTitle = shouldGroupBySkintone && displayOccasion
+    ? displayOccasion
+    : (activeCategory === 'all' ? 'All Products' : formatLabel(activeCategory));
 
   const updateFilter = (key, value) => {
     const prev = new URLSearchParams(searchParams);
@@ -147,17 +242,17 @@ const AllProductsPage = ({ initialCategory = 'all' }) => {
     <div className="bg-white min-h-screen">
       {/* Mobile Header */}
       <MobilePageHeader
-        title={activeCategory === 'all' ? 'All Products' : activeCategory}
+        title={pageTitle}
         onSearch={() => document.dispatchEvent(new CustomEvent('open-search'))}
       />
 
       {/* Breadcrumb / Title Header - Desktop Only */}
       <div className="hidden lg:flex site-shell py-6 flex-col gap-2">
         <div className="text-xs text-gray-500">
-          Home / <span className="font-bold text-gray-800 capitalize">{activeCategory}</span>
+          Home / <span className="font-bold text-gray-800 capitalize">{pageTitle}</span>
         </div>
         <h1 className="text-lg font-bold text-gray-800 capitalize">
-          {activeCategory === 'all' ? 'All Products' : activeCategory} <span className="text-gray-400 font-normal text-sm">- {sortedProducts.length} items</span>
+          {pageTitle} <span className="text-gray-400 font-normal text-sm">- {totalItems} items</span>
         </h1>
       </div>
 
@@ -171,7 +266,7 @@ const AllProductsPage = ({ initialCategory = 'all' }) => {
             <div className="relative group">
               <button className={`flex items-center gap-1 text-sm font-bold px-4 py-2 rounded-full transition-colors whitespace-nowrap ${skintoneFilter ? 'bg-black text-white' : 'text-gray-700 hover:bg-gray-100'
                 }`}>
-                {skintoneFilter ? `Skin: ${skintoneFilter}` : 'Skin Tone'} <ChevronDown className="w-4 h-4" />
+                {skintoneFilter ? `Skin: ${displaySkintone}` : 'Skin Tone'} <ChevronDown className="w-4 h-4" />
               </button>
               <div className="absolute top-full left-0 mt-1 w-40 bg-white border border-gray-100 shadow-lg py-2 hidden group-hover:block z-40 rounded-lg">
                 <button onClick={() => updateFilter('skintone', 'all')} className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-50">All</button>
@@ -185,7 +280,7 @@ const AllProductsPage = ({ initialCategory = 'all' }) => {
             <div className="relative group">
               <button className={`flex items-center gap-1 text-sm font-bold px-4 py-2 rounded-full transition-colors whitespace-nowrap ${occasionFilter ? 'bg-black text-white' : 'text-gray-700 hover:bg-gray-100'
                 }`}>
-                {occasionFilter ? `Occasion: ${occasionFilter}` : 'Occasion'} <ChevronDown className="w-4 h-4" />
+                {occasionFilter ? `Occasion: ${displayOccasion}` : 'Occasion'} <ChevronDown className="w-4 h-4" />
               </button>
               <div className="absolute top-full left-0 mt-1 w-48 bg-white border border-gray-100 shadow-lg py-2 hidden group-hover:block z-40 rounded-lg">
                 <button onClick={() => updateFilter('occasion', 'all')} className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-50">All</button>
@@ -230,6 +325,26 @@ const AllProductsPage = ({ initialCategory = 'all' }) => {
       <div className="site-shell py-8">
         {loading ? (
           <div className="flex justify-center py-20 text-gray-500">Loading products...</div>
+        ) : shouldGroupBySkintone ? (
+          groupedProducts.length > 0 ? (
+            <div className="space-y-10">
+              {groupedProducts.map((group) => (
+                <section key={group.id} className="space-y-4">
+                  <div className="flex items-end justify-between">
+                    <h2 className="text-xl font-bold text-gray-900">{group.label}</h2>
+                    <span className="text-sm text-gray-500">{group.products.length} items</span>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-x-6 gap-y-10">
+                    {group.products.map((product, index) => (
+                      <ProductCard key={product.handle || product.id || index} item={product} />
+                    ))}
+                  </div>
+                </section>
+              ))}
+            </div>
+          ) : (
+            <div className="col-span-full text-center py-20 text-gray-500">No products found for this occasion.</div>
+          )
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-x-6 gap-y-10">
             {sortedProducts.length > 0 ? (

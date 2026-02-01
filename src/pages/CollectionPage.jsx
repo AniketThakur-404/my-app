@@ -14,12 +14,16 @@ const normalizeForMatch = (value) => {
 
 const tokenize = (value) => normalizeForMatch(value).split(' ').filter(Boolean);
 
+const uniqueTokens = (values) => Array.from(new Set(values.filter(Boolean)));
+
 const matchesToken = (source, targetTokens) => {
     if (!source || targetTokens.length === 0) return false;
     const sourceTokens = tokenize(source);
     if (sourceTokens.length === 0) return false;
     if (targetTokens.length === 1) {
-        return sourceTokens.includes(targetTokens[0]);
+        const target = targetTokens[0];
+        if (sourceTokens.includes(target)) return true;
+        return sourceTokens.some((token) => token.includes(target));
     }
     if (targetTokens.every((token) => sourceTokens.includes(token))) return true;
     const collapsedSource = sourceTokens.join('');
@@ -41,7 +45,17 @@ const productMatchesFilter = (product, filterToken) => {
         ...collections.map((collection) => collection?.title),
     ].filter(Boolean);
 
-    return candidates.some((candidate) => matchesToken(candidate, targetTokens));
+    if (candidates.some((candidate) => matchesToken(candidate, targetTokens))) return true;
+
+    if (targetTokens.length > 1) {
+        const candidateTokens = uniqueTokens(candidates.flatMap((candidate) => tokenize(candidate)));
+        if (!candidateTokens.length) return false;
+        return targetTokens.every((token) =>
+            candidateTokens.some((candidateToken) => candidateToken === token || candidateToken.includes(token)),
+        );
+    }
+
+    return false;
 };
 
 const CollectionPage = () => {

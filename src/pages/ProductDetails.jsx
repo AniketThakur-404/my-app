@@ -330,6 +330,50 @@ const ProductDetails = () => {
     return matchByBoth || findVariantForSize(product, selectedSize);
   }, [product, selectedSize, selectedColor]);
 
+  const getVariantForOptions = useMemo(() => {
+    return (item, { size, color }) => {
+      if (!item?.variants?.length) return null;
+      const targetSize = normaliseTokenValue(size);
+      const targetColor = normaliseTokenValue(color);
+      const matches = item.variants.find((variant) => {
+        const sizeMatch =
+          !targetSize ||
+          variant?.selectedOptions?.some(
+            (opt) =>
+              normaliseTokenValue(opt?.name).includes('size') &&
+              normaliseTokenValue(opt?.value) === targetSize,
+          );
+        const colorMatch =
+          !targetColor ||
+          variant?.selectedOptions?.some((opt) => {
+            const name = normaliseTokenValue(opt?.name);
+            return (
+              (name.includes('color') || name.includes('colour')) &&
+              normaliseTokenValue(opt?.value) === targetColor
+            );
+          });
+        return sizeMatch && colorMatch;
+      });
+      return matches || null;
+    };
+  }, []);
+
+  const getAvailability = useMemo(() => {
+    return (item, { size, color }) => {
+      const variant = getVariantForOptions(item, { size, color });
+      if (!variant) {
+        const fallback = item?.availableForSale ?? true;
+        return { inStock: fallback, lowStock: false, quantity: null };
+      }
+      const qty = Number.isFinite(variant.quantityAvailable)
+        ? variant.quantityAvailable
+        : null;
+      const inStock = Boolean(variant.availableForSale) && (qty == null || qty > 0);
+      const lowStock = inStock && qty != null && qty <= 5;
+      return { inStock, lowStock, quantity: qty };
+    };
+  }, [getVariantForOptions]);
+
   const price = useMemo(() => {
     if (!product) return '';
     const amount =
@@ -359,7 +403,11 @@ const ProductDetails = () => {
       })?.value;
 
     if (hasSizes && !selectedSize && sizeOptions.length) {
-      setSelectedSize(variantSize || sizeOptions[0]);
+      const firstAvailable =
+        sizeOptions.find((size) =>
+          getAvailability(product, { size, color: selectedColor }).inStock,
+        ) ?? sizeOptions[0];
+      setSelectedSize(variantSize || firstAvailable);
     }
     if (hasColors && !selectedColor && colorOptions.length) {
       setSelectedColor(variantColor || colorOptions[0]);
@@ -372,7 +420,16 @@ const ProductDetails = () => {
     hasColors,
     colorOptions,
     selectedColor,
+    getAvailability,
   ]);
+
+  const sizeAvailability = useMemo(() => {
+    if (!product || !hasSizes) return {};
+    return sizeOptions.reduce((acc, size) => {
+      acc[size] = getAvailability(product, { size, color: selectedColor });
+      return acc;
+    }, {});
+  }, [product, hasSizes, sizeOptions, selectedColor, getAvailability]);
 
   const toggleAccordion = (key) =>
     setOpenAccordion((current) => (current === key ? null : key));
@@ -386,6 +443,17 @@ const ProductDetails = () => {
 
   const handleAddToCart = () => {
     if (!product?.handle) return;
+
+    if (hasSizes) {
+      const availability = sizeAvailability[selectedSize];
+      if (availability && !availability.inStock) {
+        notify({
+          title: 'Out of stock',
+          message: 'Selected size is not available. Please choose another size.',
+        });
+        return;
+      }
+    }
 
     if (hasComboItems) {
       if (selectedComboList.length === 0) {
@@ -966,19 +1034,35 @@ const ProductDetails = () => {
                   </button>
                 </div>
                 <div className="flex gap-2 flex-wrap">
-                  {sizeOptions.map((size) => (
-                    <button
-                      key={size}
-                      onClick={() => setSelectedSize(size)}
-                      className={`min-w-[48px] h-10 px-2 border flex items-center justify-center text-sm font-medium transition-all ${selectedSize === size
-                        ? 'border-black bg-black text-white'
-                        : 'border-gray-300 text-gray-900 hover:border-black'
-                        }`}
-                    >
-                      {size}
-                    </button>
-                  ))}
+                  {sizeOptions.map((size) => {
+                    const availability = sizeAvailability[size];
+                    const isOut = availability ? !availability.inStock : false;
+                    const isSelected = selectedSize === size;
+                    return (
+                      <button
+                        key={size}
+                        onClick={() => setSelectedSize(size)}
+                        disabled={isOut}
+                        className={`min-w-[48px] h-10 px-2 border flex items-center justify-center text-sm font-medium transition-all ${isSelected
+                          ? 'border-black bg-black text-white'
+                          : 'border-gray-300 text-gray-900 hover:border-black'
+                          } ${isOut ? 'bg-gray-50 text-gray-400 cursor-not-allowed hover:border-gray-300' : ''}`}
+                        title={isOut ? 'Out of stock' : availability?.lowStock ? 'Low stock' : 'In stock'}
+                      >
+                        {size}
+                      </button>
+                    );
+                  })}
                 </div>
+                {selectedSize && !sizeAvailability[selectedSize]?.inStock ? (
+                  <p className="mt-3 text-xs text-rose-600">Out of stock</p>
+                ) : selectedSize && sizeAvailability[selectedSize]?.lowStock ? (
+                  <p className="mt-3 text-xs text-orange-600">
+                    {Number.isFinite(sizeAvailability[selectedSize]?.quantity)
+                      ? `Only ${sizeAvailability[selectedSize].quantity} left`
+                      : 'Low stock'}
+                  </p>
+                ) : null}
                 <p className="text-xs text-orange-600 mt-3 flex items-center gap-1">
                   <Truck className="w-3 h-3" /> FREE 1-2 day delivery on 5k+
                   pincodes

@@ -23,7 +23,7 @@ const Navbar = ({ onSearchClick, onCartClick }) => {
 
   return (
     <header className="sticky top-0 z-50 bg-white shadow-sm border-b border-gray-100 font-sans">
-      <div className="site-shell h-24 flex items-center justify-between gap-4">
+      <div className="site-shell h-24 flex items-center gap-4">
 
         {/* Left: Logo & Mobile Toggle */}
         <div className="flex items-center gap-4 flex-shrink-0">
@@ -44,7 +44,7 @@ const Navbar = ({ onSearchClick, onCartClick }) => {
         </div>
 
         {/* Center: Desktop Nav */}
-        <nav className="hidden lg:flex items-center gap-5 xl:gap-8">
+        <nav className="hidden lg:flex flex-1 items-center justify-center gap-4 xl:gap-6 min-w-0">
           {navLinks.map((link) => (
             <Link
               key={link.label}
@@ -60,9 +60,9 @@ const Navbar = ({ onSearchClick, onCartClick }) => {
         </nav>
 
         {/* Right: Search & Actions */}
-        <div className="flex items-center gap-6 flex-shrink-0">
+        <div className="flex items-center gap-4 flex-shrink-0">
           {/* Search Bar */}
-          <div className="hidden md:flex items-center relative bg-[#f5f5f6] rounded-md w-56 group focus-within:ring-1 focus-within:ring-gray-200 transition-shadow">
+          <div className="hidden md:flex items-center relative bg-[#f5f5f6] rounded-md w-44 lg:w-48 xl:w-52 2xl:w-56 group focus-within:ring-1 focus-within:ring-gray-200 transition-shadow">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <Search className="h-4 w-4 text-gray-500" />
             </div>
@@ -75,7 +75,7 @@ const Navbar = ({ onSearchClick, onCartClick }) => {
           </div>
 
           {/* Icons */}
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-4">
             {/* Mobile Search Icon */}
             <button
               className="md:hidden flex flex-col items-center gap-1 cursor-pointer group"
